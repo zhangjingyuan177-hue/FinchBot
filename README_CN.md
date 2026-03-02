@@ -1,4 +1,4 @@
-# FinchBot (雀翎) — 轻量灵活，无限扩展的 AI Agent 框架
+# FinchBot (雀翎) — 自主决策，动态扩展的 AI Agent 框架
 
 <p align="center">
   <img src="docs/image/image.png" alt="FinchBot Logo" width="600">
@@ -6,7 +6,7 @@
 
 <p align="center">
   <em>基于 LangChain v1.2 与 LangGraph v1.0 构建<br>
-  具备持久记忆、动态提示词、无缝工具集成</em>
+  具备持久记忆、动态提示词、自主能力扩展</em>
 </p>
 
 <p align="center">🌐 <strong>Language</strong>: <a href="README.md">English</a> | <a href="README_CN.md">中文</a></p>
@@ -32,35 +32,37 @@
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square&logo=open-source-initiative" alt="License">
 </p>
 
-**FinchBot (雀翎)** 是一个轻量级、模块化的 AI Agent 框架，基于 **LangChain v1.2** 和 **LangGraph v1.0** 构建。它不是又一个简单的 LLM 封装，而是一个深思熟虑的架构设计，专注于三个核心问题：
+**FinchBot (雀翎)** 是一个 AI Agent 框架，基于 **LangChain v1.2** 和 **LangGraph v1.0** 构建。与传统仅能响应用户输入的智能体不同，FinchBot 智能体能够**自主执行任务、自主创建计划、自主扩展能力**：
 
-1. **如何让 Agent 的能力无限扩展？** — 通过技能 (Skill) 和工具 (Tool) 的双层扩展机制
-2. **如何让 Agent 拥有真正的记忆？** — 通过双层存储架构 + Agentic RAG
-3. **如何让 Agent 的行为可定制？** — 通过动态提示词文件系统
+1. **自主执行** — 后台运行长任务，不阻塞对话
+2. **自主规划** — 创建和管理基于 Cron 表达式的定时任务
+3. **自主扩展** — 动态配置 MCP 服务器，按需创建技能
+
+遇到能力边界时，FinchBot 不是放弃，而是想办法扩展自己。
 
 ## 目录
 
 1. [为什么选择 FinchBot？](#为什么选择-finchbot)
-2. [系统架构](#系统架构)
-3. [核心组件](#核心组件)
-4. [快速开始](#快速开始)
-5. [技术栈](#技术栈)
-6. [扩展指南](#扩展指南)
-7. [文档](#文档)
+2. [智能体自主性架构](#智能体自主性架构)
+3. [系统架构](#系统架构)
+4. [核心组件](#核心组件)
+5. [快速开始](#快速开始)
+6. [技术栈](#技术栈)
+7. [扩展指南](#扩展指南)
+8. [文档](#文档)
 
 ---
 
 ## 为什么选择 FinchBot？
 
-### 现有框架的痛点
+### 能力边界问题
 
-|         痛点         | 传统方案                | FinchBot 方案                              |
-| :------------------: | :---------------------- | :----------------------------------------- |
-|  **扩展困难**  | 需要修改核心代码        | 继承 FinchTool 基类或创建 Markdown 技能文件 |
-|  **记忆脆弱**  | 依赖 LLM 上下文窗口     | SQLite + 向量双层存储 + Agentic RAG + 加权 RRF |
-|  **提示词僵化**  | 硬编码在代码中          | Bootstrap 文件系统，用户可自定义提示词，热加载 |
-|  **启动缓慢**  | 同步阻塞加载            | 全异步架构 + 线程池并发初始化，启动速度提升 3-5x |
-|  **架构过时**  | 基于 LangChain 旧版 API | LangChain v1.2 + LangGraph v1.0 状态图编排 |
+| 用户请求 | 传统 AI 回应 | FinchBot 回应 |
+|:---|:---|:---|
+| "分析这个数据库" | "我没有数据库工具" | 自主配置 SQLite MCP，然后分析 |
+| "帮我监控 24 小时" | "我只能在你问的时候响应" | 创建定时任务，自主监控 |
+| "处理这个大文件" | 阻塞对话，用户等待 | 后台执行，用户继续 |
+| "学会做某事" | "等开发者添加功能" | 通过 skill-creator 自主创建技能 |
 
 ### 设计哲学
 
@@ -139,7 +141,173 @@ uv run finchbot chat
 | :---------------------: | :--------------------------------------------------------------------------- |
 | **环境变量配置** | 所有配置均可通过环境变量设置（`OPENAI_API_KEY`、`ANTHROPIC_API_KEY` 等） |
 |  **i18n 国际化**  | 内置中英文支持，自动检测系统语言                                             |
-|   **自动降级**   | 网页搜索自动降级：Tavily → Brave → DuckDuckGo                              |
+|     **自动降级**     | 网页搜索自动降级：Tavily → Brave → DuckDuckGo                                 |
+
+---
+
+## 智能体自主性架构
+
+**核心理念**：FinchBot 智能体不只是响应 — 它们自主执行、自主规划、自主扩展。
+
+### 自主性金字塔
+
+```mermaid
+flowchart LR
+    subgraph L1["响应层"]
+        R1["对话系统"]
+        R2["工具调用"]
+        R3["上下文记忆"]
+    end
+
+    subgraph L2["执行层"]
+        X1["后台任务"]
+        X2["异步处理"]
+        X3["非阻塞"]
+    end
+
+    subgraph L3["规划层"]
+        P1["定时任务"]
+        P2["心跳监控"]
+        P3["自动触发"]
+    end
+
+    subgraph L4["扩展层"]
+        E1["MCP 自动配置"]
+        E2["技能创建"]
+        E3["动态加载"]
+    end
+
+    L1 --> L2 --> L3 --> L4
+
+    style L1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    style L2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    style L3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    style L4 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17
+```
+
+| 层级 | 能力 | 实现方式 | 用户价值 |
+|:---:|:---|:---|:---|
+| **响应层** | 响应用户请求 | 对话系统 + 工具调用 | 基础交互 |
+| **执行层** | 自主执行任务 | 后台任务系统 | 对话不阻塞 |
+| **规划层** | 自主创建计划 | 定时任务 + 心跳服务 | 自动化执行 |
+| **扩展层** | 自主扩展能力 | MCP 配置 + 技能创建 | 无限扩展 |
+
+### 自主执行：后台任务系统
+
+FinchBot 实现了**三工具模式**用于异步任务执行：
+
+| 工具 | 功能 | 智能体自主性 |
+|:---|:---|:---|
+| `start_background_task` | 启动后台任务 | 智能体自主判断是否需要后台执行 |
+| `check_task_status` | 检查任务状态 | 智能体自主决定何时检查 |
+| `get_task_result` | 获取任务结果 | 智能体自主决定何时获取结果 |
+| `cancel_task` | 取消任务 | 智能体自主决定是否取消 |
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant A as 智能体
+    participant BG as 后台任务系统
+    participant S as 子智能体
+
+    U->>A: 执行长任务
+    A->>BG: start_background_task
+    BG->>S: 创建独立智能体
+    BG-->>A: 返回 job_id
+    A-->>U: 任务已启动 (ID: xxx)
+    
+    Note over U,A: 用户继续对话...
+    
+    U->>A: 其他问题
+    A-->>U: 正常回复
+    
+    U->>A: 任务进度？
+    A->>BG: check_task_status
+    BG-->>A: running
+    A-->>U: 仍在执行...
+    
+    S-->>BG: 任务完成
+    U->>A: 获取结果
+    A->>BG: get_task_result
+    BG-->>A: 返回结果
+    A-->>U: 展示任务结果
+```
+
+### 自主规划：定时任务系统
+
+FinchBot 提供完整的定时任务支持，支持 **Cron 表达式**：
+
+| 表达式 | 说明 |
+|:---|:---|
+| `0 9 * * *` | 每天上午 9:00 |
+| `0 */2 * * *` | 每 2 小时 |
+| `30 18 * * 1-5` | 工作日下午 6:30 |
+| `0 0 1 * *` | 每月 1 日午夜 |
+
+**交互式 CLI 管理**：
+
+| 按键 | 操作 |
+|:---:|:---|
+| ↑ / ↓ | 浏览任务列表 |
+| Enter | 查看任务详情 |
+| n | 创建新任务 |
+| d | 删除选中任务 |
+| e | 启用/禁用任务 |
+| r | 立即执行 |
+| q | 退出管理 |
+
+### 自主扩展：MCP 自动配置
+
+**核心理念**：智能体自主配置 MCP 服务器以扩展能力。
+
+```mermaid
+flowchart TB
+    classDef need fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef config fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef tool fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef use fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+
+    Need[智能体发现需求<br/>"我需要数据库能力"]:::need
+    Search[搜索可用的 MCP 服务器]:::config
+    Config[configure_mcp<br/>自主配置]:::config
+    Load[动态加载新工具]:::tool
+    Use[智能体使用新工具]:::use
+
+    Need --> Search --> Config --> Load --> Use
+```
+
+**智能体自主扩展示例**：
+
+```
+用户：帮我分析这个 SQLite 数据库
+
+智能体思考：
+1. 当前工具检查：没有数据库操作工具
+2. 能力缺口：需要 SQLite 操作能力
+3. 解决方案：配置 SQLite MCP 服务器
+
+智能体行动：
+1. 调用 configure_mcp(action="add", server_name="sqlite", ...)
+2. 调用 refresh_capabilities() 刷新能力描述
+3. 新工具自动加载：query_sqlite, list_tables, ...
+
+智能体使用新能力：
+1. 调用 list_tables() 查看表结构
+2. 调用 query_sqlite("SELECT * FROM users LIMIT 10")
+3. 向用户返回：数据库分析结果...
+```
+
+### 安全机制
+
+**智能体自主 ≠ 智能体乱来。** FinchBot 实现了多重安全机制：
+
+| 安全机制 | 状态 | 作用 |
+|:---|:---:|:---|
+| **路径限制** | ✅ 已实现 | 文件操作限定在 workspace 目录内 |
+| **Shell 命令黑名单** | ✅ 已实现 | 阻止 `rm -rf`、`format`、`shutdown` 等危险命令 |
+| **工具注册机制** | ✅ 已实现 | 只有注册的工具可被调用 |
+
+**理念**：给智能体解决问题的自由，但在明确的边界内。
 
 ---
 
@@ -870,18 +1038,17 @@ EOF
 
 |         优势         | 说明                                                        |
 | :------------------: | :---------------------------------------------------------- |
+|  **突破能力边界** | 遇到能力缺口时，智能体自主配置 MCP、创建技能 |
+|  **非阻塞执行** | 长任务后台运行，对话继续进行 |
+|  **自主调度** | 智能体自主创建 Cron 任务，7×24 运行 |
+|  **安全自主** | 文件操作限制在 workspace，危险 Shell 命令被阻止 |
+|  **持久记忆** | 双层存储 + Agentic RAG，永不遗忘 |
 |  **隐私优先**  | 使用 FastEmbed 本地生成向量，无需上传云端数据               |
-|  **真持久化**  | 双层记忆存储架构，支持语义检索和精确查询                    |
 | **生产级稳定** | 双重检查锁、自动重试、超时控制机制                          |
 |  **灵活扩展**  | 继承 FinchTool 或创建 SKILL.md 即可扩展，无需修改核心代码   |
 |  **模型无关**  | 支持 OpenAI, Anthropic, Gemini, DeepSeek, Moonshot, Groq 等 |
-|  **并发安全**  | 工具注册使用双重检查锁定模式，线程安全                      |
 | **多平台支持** | 通过 LangBot 支持 QQ、微信、飞书、钉钉、Discord、Telegram、Slack 等 12+ 平台 |
 | **MCP 支持** | 通过官方 langchain-mcp-adapters 支持 stdio 和 HTTP 传输 |
-| **智能体自主性** | 智能体可自主执行任务、自主创建计划、自主扩展能力 |
-| **后台任务** | 三工具模式异步执行长时间任务 |
-| **定时任务** | 基于 Cron 表达式的调度，支持交互式 CLI 管理 |
-| **心跳服务** | 后台监控与自动任务触发 |
 
 ---
 

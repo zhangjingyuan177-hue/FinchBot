@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from croniter import croniter
 from loguru import logger
@@ -34,7 +35,7 @@ class CronJob(BaseModel):
     last_run_date: str | None = None
     run_count: int = 0
     metadata: dict = Field(default_factory=dict)
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class CronService:
@@ -195,7 +196,7 @@ class CronService:
                 result = f"Executed: {job.message}"
 
             job.run_count += 1
-            job.last_run_date = datetime.now(timezone.utc).isoformat()
+            job.last_run_date = datetime.now(UTC).isoformat()
             job.next_run_date = self._compute_next_run(job.schedule)
             self._save()
 
@@ -246,7 +247,7 @@ class CronService:
         now_local = datetime.now().astimezone()
         cron = croniter(schedule, now_local)
         next_dt_local = cron.get_next(datetime)
-        return next_dt_local.astimezone(timezone.utc).isoformat()
+        return next_dt_local.astimezone(UTC).isoformat()
 
     def _recompute_next_runs(self) -> None:
         """重新计算所有任务的下次执行时间."""
@@ -256,7 +257,7 @@ class CronService:
                 try:
                     cron = croniter(job.schedule, now_local)
                     next_dt_local = cron.get_next(datetime)
-                    job.next_run_date = next_dt_local.astimezone(timezone.utc).isoformat()
+                    job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
                 except Exception:
                     pass
 
@@ -286,7 +287,7 @@ class CronService:
             self._timer_task = None
 
         # 找到最近的待执行任务
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         enabled_jobs = [j for j in self._jobs.values() if j.enabled and j.next_run_date]
 
         if not enabled_jobs:
@@ -311,7 +312,7 @@ class CronService:
             if not self._running:
                 return
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             for job in list(self._jobs.values()):
                 if not job.enabled or not job.next_run_date:

@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import contextlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -219,7 +219,7 @@ class CronTaskUI:
                 now_local = datetime.now().astimezone()
                 cron = croniter(schedule, now_local)
                 next_dt_local = cron.get_next(datetime)
-                job.next_run_date = next_dt_local.astimezone(timezone.utc).isoformat()
+                job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
                 self.cron_service._jobs[job.cron_id] = job
                 self.cron_service._save()
             except RuntimeError:
@@ -270,7 +270,7 @@ class CronTaskUI:
                 now_local = datetime.now().astimezone()
                 cron = croniter(job.schedule, now_local)
                 next_dt_local = cron.get_next(datetime)
-                job.next_run_date = next_dt_local.astimezone(timezone.utc).isoformat()
+                job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
             self.cron_service._save()
         except RuntimeError:
             asyncio.run(self.cron_service.toggle(job.cron_id, new_enabled))
@@ -294,13 +294,13 @@ class CronTaskUI:
             loop = asyncio.get_running_loop()
             # 直接执行
             job.run_count += 1
-            job.last_run_date = datetime.now(timezone.utc).isoformat()
+            job.last_run_date = datetime.now(UTC).isoformat()
             from croniter import croniter
 
             now_local = datetime.now().astimezone()
             cron = croniter(job.schedule, now_local)
             next_dt_local = cron.get_next(datetime)
-            job.next_run_date = next_dt_local.astimezone(timezone.utc).isoformat()
+            job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
             self.cron_service._save()
             console.print(f"[green]{t('cron.actions.run_success', name=job.name)}[/green]")
         except RuntimeError:
@@ -355,7 +355,7 @@ class CronTaskUI:
 
         try:
             dt = datetime.fromisoformat(next_run_date.replace("Z", "+00:00"))
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             diff = dt - now
 
             if diff.total_seconds() < 0:

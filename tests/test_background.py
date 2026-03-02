@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 
 from finchbot.agent.tools.background import (
-    JobManager,
-    JobStatus,
     cancel_task,
     check_task_status,
     get_job_manager,

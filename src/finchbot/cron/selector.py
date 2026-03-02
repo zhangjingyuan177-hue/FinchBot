@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -187,7 +187,9 @@ class CronSelector:
                 next_run_text = Text(next_run, style="dim")
                 status_text = Text(status, style="green" if job.enabled else "red")
 
-            table.add_row(cursor_text, id_text, name_text, schedule_text, next_run_text, status_text)
+            table.add_row(
+                cursor_text, id_text, name_text, schedule_text, next_run_text, status_text
+            )
 
         console.print(table)
 
@@ -300,7 +302,7 @@ class CronSelector:
                 now_local = datetime.now().astimezone()
                 cron = croniter(schedule, now_local)
                 next_dt_local = cron.get_next(datetime)
-                new_job.next_run_date = next_dt_local.astimezone(timezone.utc).isoformat()
+                new_job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
                 self.service._jobs[new_job.cron_id] = new_job
                 self.service._save()
                 console.print(f"[green]{t('cron.actions.create_success', name=name)}[/green]")
@@ -342,12 +344,14 @@ class CronSelector:
             now_local = datetime.now().astimezone()
             cron = croniter(job.schedule, now_local)
             next_dt_local = cron.get_next(datetime)
-            job.next_run_date = next_dt_local.astimezone(timezone.utc).isoformat()
+            job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
 
         self.service._save()
 
         status = t("cron.status.enabled") if new_enabled else t("cron.status.disabled")
-        console.print(f"[green]{t('cron.actions.toggle_success', name=job.name, status=status)}[/green]")
+        console.print(
+            f"[green]{t('cron.actions.toggle_success', name=job.name, status=status)}[/green]"
+        )
 
     def _handle_run_job(self, job: CronJob) -> None:
         """立即执行任务.
@@ -359,14 +363,14 @@ class CronSelector:
 
         # 更新执行信息
         job.run_count += 1
-        job.last_run_date = datetime.now(timezone.utc).isoformat()
+        job.last_run_date = datetime.now(UTC).isoformat()
 
         from croniter import croniter
 
         now_local = datetime.now().astimezone()
         cron = croniter(job.schedule, now_local)
         next_dt_local = cron.get_next(datetime)
-        job.next_run_date = next_dt_local.astimezone(timezone.utc).isoformat()
+        job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
 
         self.service._save()
         console.print(f"[green]{t('cron.actions.run_success', name=job.name)}[/green]")
@@ -385,7 +389,7 @@ class CronSelector:
 
         try:
             dt = datetime.fromisoformat(next_run_date.replace("Z", "+00:00"))
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             diff = dt - now
 
             if diff.total_seconds() < 0:

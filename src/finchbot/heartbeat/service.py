@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from loguru import logger
@@ -138,12 +139,12 @@ class HeartbeatService:
         if self._last_check:
             self._next_check = datetime.fromtimestamp(
                 self._last_check.timestamp() + self.interval_s,
-                tz=timezone.utc,
+                tz=UTC,
             )
         else:
             self._next_check = datetime.fromtimestamp(
-                datetime.now(timezone.utc).timestamp() + self.interval_s,
-                tz=timezone.utc,
+                datetime.now(UTC).timestamp() + self.interval_s,
+                tz=UTC,
             )
 
     async def _loop(self) -> None:
@@ -164,7 +165,7 @@ class HeartbeatService:
         Returns:
             (action, tasks) 元组
         """
-        self._last_check = datetime.now(timezone.utc)
+        self._last_check = datetime.now(UTC)
         self._update_next_check()
 
         if not self.heartbeat_file.exists():

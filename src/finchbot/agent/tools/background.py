@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from langchain_core.tools import tool
@@ -27,7 +27,7 @@ class JobStatus(BaseModel):
     status: str  # pending, running, completed, failed, cancelled
     result: str | None = None
     error: str | None = None
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
@@ -88,9 +88,9 @@ class JobManager:
             if error is not None:
                 job.error = error
             if status == "running" and job.started_at is None:
-                job.started_at = datetime.now(timezone.utc)
+                job.started_at = datetime.now(UTC)
             if status in ("completed", "failed", "cancelled"):
-                job.completed_at = datetime.now(timezone.utc)
+                job.completed_at = datetime.now(UTC)
 
     def get_status(self, job_id: str) -> JobStatus | None:
         """获取任务状态.
@@ -152,7 +152,7 @@ class JobManager:
         Returns:
             清理的任务数量
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         to_remove = []
         for job_id, job in self._jobs.items():
             if job.completed_at:

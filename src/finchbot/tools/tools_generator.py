@@ -223,7 +223,15 @@ class ToolsGenerator:
             return t("tools.categories.session_mgmt")
 
         # 后台任务工具
-        background_keywords = ["background", "task", "job", "start_task", "check_status", "get_result", "cancel_task"]
+        background_keywords = [
+            "background",
+            "task",
+            "job",
+            "start_task",
+            "check_status",
+            "get_result",
+            "cancel_task",
+        ]
         if any(keyword in tool_name for keyword in background_keywords) or any(
             keyword in tool_desc for keyword in background_keywords
         ):

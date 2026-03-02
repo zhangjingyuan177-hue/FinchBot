@@ -25,7 +25,7 @@
 
 ---
 
-# FinchBot (雀翎) — 轻量灵活，无限扩展的 AI Agent 框架
+# FinchBot (雀翎) — 当 AI 说"让我想办法"而不是"我不会"
 
 <p align="center"> 
    <img src="https://i-blog.csdnimg.cn/direct/60cd5e5971cc4226977289a17a99dbae.png" alt="FinchBot Logo" width="600"> 
@@ -33,7 +33,7 @@
 
 <p align="center">
   <em>基于 LangChain v1.2 与 LangGraph v1.0 构建<br>
-  具备持久记忆、动态提示词、无缝工具集成</em>
+  具备持久记忆、动态提示词、自主能力扩展</em>
 </p>
 
 **🎉 Gitee 官方推荐项目** — FinchBot 已获得 Gitee 官方推荐！
@@ -42,25 +42,42 @@
 
 ## 摘要
 
-**FinchBot (雀翎)** 是一个轻量级、模块化的 AI Agent 框架，基于 **LangChain v1.2** 和 **LangGraph v1.0** 构建。它不是又一个简单的 LLM 封装，而是一个深思熟虑的架构设计，专注于三个核心问题：
+想象这样一个对话：
 
-1. **如何让 Agent 的能力无限扩展？** — 通过技能 (Skill) 和工具 (Tool) 的双层扩展机制
-2. **如何让 Agent 拥有真正的记忆？** — 通过双层存储架构 + Agentic RAG
-3. **如何让 Agent 的行为可定制？** — 通过动态提示词文件系统
+> 用户："帮我分析这个 SQLite 数据库"
+> 
+> **传统 AI**："抱歉，我没有数据库操作的能力，无法完成这个任务。"
+> 
+> **FinchBot**：*[思考：我还没有数据库工具...]* 
+> "让我配置一下数据库工具。" 
+> *[调用 configure_mcp 添加 SQLite MCP]* 
+> *[新工具已加载：query_sqlite, list_tables...]* 
+> "好了！现在可以分析你的数据库了。数据库包含 3 张表..."
+
+**这就是 FinchBot 的核心差异**：遇到能力边界时，不是"放弃"，而是"想办法"。
+
+基于 **LangChain v1.2** 和 **LangGraph v1.0**，FinchBot 赋予智能体真正的自主性：
+
+| 边界 | 传统 AI | FinchBot |
+|:---|:---|:---|
+| **能力边界** | "我没有这个能力" | 自主配置 MCP，扩展能力 |
+| **时间边界** | 阻塞对话，等待完成 | 后台执行，对话继续 |
+| **规划边界** | "你需要自己设置" | 自主创建定时任务 |
+
+**而且它是安全的**：所有自主操作都在安全边界内 — 文件操作限制在 workspace 目录，危险 Shell 命令被黑名单阻止，只有注册的工具才能执行。
 
 ---
 
 ## 1. 为什么选择 FinchBot？
 
-### 现有框架的痛点
+### 能力边界问题
 
-|         痛点         | 传统方案                | FinchBot 方案                              |
-| :------------------: | :---------------------- | :----------------------------------------- |
-|  **扩展困难**  | 需要修改核心代码        | 继承 FinchTool 基类或创建 Markdown 技能文件 |
-|  **记忆脆弱**  | 依赖 LLM 上下文窗口     | SQLite + 向量双层存储 + Agentic RAG + 加权 RRF |
-|  **提示词僵化**  | 硬编码在代码中          | Bootstrap 文件系统，用户可自定义提示词，热加载 |
-|  **启动缓慢**  | 同步阻塞加载            | 全异步架构 + 线程池并发初始化，启动速度提升 3-5x |
-|  **架构过时**  | 基于 LangChain 旧版 API | LangChain v1.2 + LangGraph v1.0 状态图编排 |
+| 用户请求 | 传统 AI 回应 | FinchBot 回应 |
+|:---|:---|:---|
+| "分析这个数据库" | "我没有数据库工具" | 自主配置 SQLite MCP，然后分析 |
+| "帮我监控 24 小时" | "我只能在你问的时候响应" | 创建定时任务，自主监控 |
+| "处理这个大文件" | 阻塞对话，用户等待 | 后台执行，用户继续 |
+| "学会做某事" | "等开发者添加功能" | 通过 skill-creator 自主创建技能 |
 
 ### 设计哲学
 
@@ -751,18 +768,17 @@ docker exec -it finchbot finchbot chat
 
 |         优势         | 说明                                                        |
 | :------------------: | :---------------------------------------------------------- |
+|  **突破能力边界** | 遇到能力缺口时，智能体自主配置 MCP、创建技能 |
+|  **非阻塞执行** | 长任务后台运行，对话继续进行 |
+|  **自主调度** | 智能体自主创建 Cron 任务，7×24 运行 |
+|  **安全自主** | 文件操作限制在 workspace，危险 Shell 命令被阻止 |
+|  **持久记忆** | 双层存储 + Agentic RAG，永不遗忘 |
 |  **隐私优先**  | 使用 FastEmbed 本地生成向量，无需上传云端数据               |
-|  **真持久化**  | 双层记忆存储架构，支持语义检索和精确查询                    |
 | **生产级稳定** | 单锁模式、自动重试、超时控制机制                          |
 |  **灵活扩展**  | 继承 FinchTool 或创建 SKILL.md 即可扩展，无需修改核心代码   |
 |  **模型无关**  | 支持 OpenAI, Anthropic, Gemini, DeepSeek, Moonshot, Groq 等 |
-|  **并发安全**  | 工具注册使用单锁模式，线程安全                              |
 | **多平台支持** | 通过 LangBot 支持 QQ、微信、飞书、钉钉、Discord、Telegram、Slack 等 12+ 平台 |
 | **MCP 支持** | 通过官方 langchain-mcp-adapters 支持 stdio 和 HTTP 传输 |
-| **智能体自主性** | 智能体可自主执行任务、自主创建计划、自主扩展能力 |
-| **后台任务** | 三工具模式异步执行长时间任务 |
-| **定时任务** | 基于 Cron 表达式的调度，支持交互式 CLI 管理 |
-| **心跳服务** | 后台监控与自动任务触发 |
 
 ---
 
@@ -773,18 +789,37 @@ docker exec -it finchbot finchbot chat
 ### 自主性金字塔
 
 ```mermaid
-graph BT
-    classDef level1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef level2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef level3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
-    classDef level4 fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+flowchart LR
+    subgraph L1["响应层"]
+        R1["对话系统"]
+        R2["工具调用"]
+        R3["上下文记忆"]
+    end
 
-    L1[响应层<br/>响应用户请求]:::level1
-    L2[执行层<br/>自主执行任务]:::level2
-    L3[规划层<br/>自主设定计划]:::level3
-    L4[扩展层<br/>自主扩展能力]:::level4
+    subgraph L2["执行层"]
+        X1["后台任务"]
+        X2["异步处理"]
+        X3["非阻塞"]
+    end
+
+    subgraph L3["规划层"]
+        P1["定时任务"]
+        P2["心跳监控"]
+        P3["自动触发"]
+    end
+
+    subgraph L4["扩展层"]
+        E1["MCP 自动配置"]
+        E2["技能创建"]
+        E3["动态加载"]
+    end
 
     L1 --> L2 --> L3 --> L4
+
+    style L1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    style L2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    style L3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    style L4 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17
 ```
 
 | 层级 | 能力 | 实现机制 | 用户价值 |

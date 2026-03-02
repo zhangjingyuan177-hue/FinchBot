@@ -25,7 +25,7 @@
 
 ---
 
-# FinchBot — A Lightweight, Flexible, Infinitely Extensible AI Agent Framework
+# FinchBot — When AI Says "Let Me Figure It Out" Instead of "I Can't"
 
 <p align="center"> 
    <img src="https://i-blog.csdnimg.cn/direct/60cd5e5971cc4226977289a17a99dbae.png" alt="FinchBot Logo" width="600"> 
@@ -33,7 +33,7 @@
 
 <p align="center">
   <em>Built on LangChain v1.2 and LangGraph v1.0<br>
-  With persistent memory, dynamic prompts, seamless tool integration</em>
+  With persistent memory, dynamic prompts, autonomous capability extension</em>
 </p>
 
 **🎉 Gitee Official Recommended Project** — FinchBot has received official recommendation from Gitee!
@@ -42,25 +42,42 @@
 
 ## Abstract
 
-**FinchBot** is a lightweight, modular AI Agent framework built on **LangChain v1.2** and **LangGraph v1.0**. It is not just another simple LLM wrapper, but a thoughtfully designed architecture focusing on three core challenges:
+Consider this conversation:
 
-1. **How to make Agent infinitely extensible?** — Through dual-layer extension mechanism of Skills and Tools
-2. **How to give Agents true memory?** — Through dual-layer storage architecture + Agentic RAG
-3. **How to make Agent behavior customizable?** — Through dynamic prompt file system
+> User: "Help me analyze this SQLite database."
+> 
+> **Traditional AI**: "Sorry, I don't have database operation capabilities. I cannot complete this task."
+> 
+> **FinchBot**: *[Thinking: I don't have database tools yet...]* 
+> "Let me configure the database tool for you." 
+> *[Calls configure_mcp to add SQLite MCP]* 
+> *[New tools loaded: query_sqlite, list_tables...]* 
+> "Done! Now I can analyze your database. It contains 3 tables..."
+
+**This is FinchBot's core difference**: When hitting capability boundaries, it doesn't give up — it figures out how to extend itself.
+
+Built on **LangChain v1.2** and **LangGraph v1.0**, FinchBot gives agents true autonomy:
+
+| Boundary | Traditional AI | FinchBot |
+|:---|:---|:---|
+| **Capability** | "I don't have this ability" | Self-configures MCP, extends capabilities |
+| **Time** | Blocks conversation, waits | Runs in background, continues dialog |
+| **Planning** | "You need to set it up" | Self-creates scheduled tasks |
+
+**And it's safe**: All autonomous actions operate within security boundaries — file operations are restricted to workspace directory, dangerous shell commands are blocked by blacklist, and only registered tools can be executed.
 
 ---
 
 ## 1. Why Choose FinchBot?
 
-### Pain Points of Existing Frameworks
+### The Capability Boundary Problem
 
-|         Pain Point         | Traditional Solution         | FinchBot Solution                                        |
-| :------------------------: | :--------------------------- | :------------------------------------------------------- |
-|   **Difficult to extend**  | Modify core code             | Inherit FinchTool base class or create Markdown skill files |
-|   **Fragile memory**       | Rely on LLM context window   | SQLite + Vector dual storage + Agentic RAG + Weighted RRF |
-|  **Inflexible prompts**    | Hard-coded in source         | Bootstrap file system, user-customizable prompts, hot reload |
-|   **Slow startup**          | Synchronous blocking load    | Full async + Thread pool concurrency, 3-5x faster startup |
-|   **Outdated architecture**| Old LangChain API           | LangChain v1.2 + LangGraph v1.0 state graph orchestration |
+| What User Asks | Traditional AI Response | FinchBot Response |
+|:---|:---|:---|
+| "Analyze this database" | "I don't have database tools" | Self-configures SQLite MCP, then analyzes |
+| "Monitor this for 24 hours" | "I can only respond when you ask" | Creates scheduled task, monitors autonomously |
+| "Process this large file" | Blocks conversation, user waits | Runs in background, user continues |
+| "Learn to do X" | "Wait for developer to add feature" | Self-creates skill via skill-creator |
 
 ### Design Philosophy
 
@@ -751,18 +768,17 @@ docker exec -it finchbot finchbot chat
 
 |       Advantage        | Description                                                                 |
 | :-------------------: | :-------------------------------------------------------------------------- |
+|   **Breaks Capability Boundaries**   | Agent self-configures MCP and creates skills when facing limits              |
+|   **Non-Blocking Execution**   | Long tasks run in background, conversations continue              |
+|   **Autonomous Scheduling**   | Agent self-creates Cron tasks, runs 24/7             |
+| **Safe Autonomy** | File operations restricted to workspace, dangerous shell commands blocked |
+|   **Persistent Memory**   | Dual-layer storage + Agentic RAG, never forgets      |
 |   **Privacy First**   | Using FastEmbed for local vector generation, no data uploaded to cloud     |
-|  **True Persistence** | Dual-layer memory storage architecture, supports semantic and precise query |
 |  **Production Ready** | Single lock mode, auto-retry, timeout control                               |
 |  **Flexible Extension** | Inherit FinchTool or create SKILL.md to extend, no core code changes      |
 |  **Model Agnostic**   | Supports OpenAI, Anthropic, Gemini, DeepSeek, Moonshot, Groq, etc.        |
-|   **Thread Safe**     | Tool registry uses single lock mode, thread-safe                           |
 | **Multi-Platform**    | Via LangBot supports QQ, WeChat, Feishu, DingTalk, Discord, Telegram, Slack and 12+ platforms |
 | **MCP Support**       | Via official langchain-mcp-adapters supporting stdio and HTTP transports |
-| **Agent Autonomy** | Agent can self-execute tasks, self-create plans, self-extend capabilities |
-| **Background Tasks** | Three-tool pattern for async execution of long-running tasks |
-| **Scheduled Tasks** | Cron expression based scheduling with interactive CLI management |
-| **Heartbeat Service** | Background monitoring and automatic task triggering |
 
 ---
 
@@ -773,18 +789,37 @@ docker exec -it finchbot finchbot chat
 ### Autonomy Pyramid
 
 ```mermaid
-graph BT
-    classDef level1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef level2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef level3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
-    classDef level4 fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+flowchart LR
+    subgraph L1["Response Layer"]
+        R1["Dialog System"]
+        R2["Tool Calls"]
+        R3["Context Memory"]
+    end
 
-    L1[Response Layer<br/>Respond to User]:::level1
-    L2[Execution Layer<br/>Self-Execute Tasks]:::level2
-    L3[Planning Layer<br/>Self-Create Plans]:::level3
-    L4[Extension Layer<br/>Self-Extend Capabilities]:::level4
+    subgraph L2["Execution Layer"]
+        X1["Background Tasks"]
+        X2["Async Processing"]
+        X3["Non-Blocking"]
+    end
+
+    subgraph L3["Planning Layer"]
+        P1["Cron Tasks"]
+        P2["Heartbeat Monitor"]
+        P3["Auto Trigger"]
+    end
+
+    subgraph L4["Extension Layer"]
+        E1["MCP Auto-Config"]
+        E2["Skill Creation"]
+        E3["Dynamic Loading"]
+    end
 
     L1 --> L2 --> L3 --> L4
+
+    style L1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    style L2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    style L3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    style L4 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17
 ```
 
 | Layer | Capability | Implementation | User Value |
