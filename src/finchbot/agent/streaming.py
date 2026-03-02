@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Callable
+from collections.abc import AsyncGenerator, Callable
+from typing import TYPE_CHECKING, Any
 
-from langchain_core.messages import AIMessageChunk
 from loguru import logger
 
 from finchbot.i18n import t
@@ -78,7 +78,7 @@ async def stream_with_progress(
     config: dict,
     on_progress: Callable[[dict], None] | None = None,
     on_token: Callable[[str], None] | None = None,
-) -> AsyncGenerator[tuple[Any, bool], None]:
+) -> AsyncGenerator[tuple[Any, bool]]:
     """带进度输出的流式执行.
 
     使用 LangGraph 的多流模式同时获取 LLM 输出和自定义进度。

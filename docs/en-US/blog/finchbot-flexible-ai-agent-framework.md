@@ -40,134 +40,66 @@
 
 ---
 
-## Abstract
+**FinchBot** is an AI Agent framework that empowers agents with true autonomy, built on **LangChain v1.2** and **LangGraph v1.0**. With fully async architecture, agents gain the ability to self-decide, self-extend, and self-evolve:
 
-Consider this conversation:
-
-> User: "Help me analyze this SQLite database."
-> 
-> **Traditional AI**: "Sorry, I don't have database operation capabilities. I cannot complete this task."
-> 
-> **FinchBot**: *[Thinking: I don't have database tools yet...]* 
-> "Let me configure the database tool for you." 
-> *[Calls configure_mcp to add SQLite MCP]* 
-> *[New tools loaded: query_sqlite, list_tables...]* 
-> "Done! Now I can analyze your database. It contains 3 tables..."
-
-**This is FinchBot's core difference**: When hitting capability boundaries, it doesn't give up — it figures out how to extend itself.
-
-Built on **LangChain v1.2** and **LangGraph v1.0**, FinchBot gives agents true autonomy:
-
-| Boundary | Traditional AI | FinchBot |
-|:---|:---|:---|
-| **Capability** | "I don't have this ability" | Self-configures MCP, extends capabilities |
-| **Time** | Blocks conversation, waits | Runs in background, continues dialog |
-| **Planning** | "You need to set it up" | Self-creates scheduled tasks |
-
-**And it's safe**: All autonomous actions operate within security boundaries — file operations are restricted to workspace directory, dangerous shell commands are blocked by blacklist, and only registered tools can be executed.
+1. **Capability Self-Extension** — Agent can use built-in tools to configure MCP and create skills when hitting capability boundaries
+2. **Task Self-Scheduling** — Agent can self-set background tasks and scheduled execution without blocking conversations
+3. **Memory Self-Management** — Agent can self-remember, self-retrieve, and self-forget with Agentic RAG + Weighted RRF hybrid retrieval
+4. **Behavior Self-Evolution** — Both Agent and users can self-modify prompts, continuously iterating and optimizing behavior
 
 ---
 
-## 1. Why Choose FinchBot?
-
-### The Capability Boundary Problem
+## The Capability Boundary Problem
 
 | What User Asks | Traditional AI Response | FinchBot Response |
 |:---|:---|:---|
 | "Analyze this database" | "I don't have database tools" | Self-configures SQLite MCP, then analyzes |
+| "Learn to do X" | "Wait for developer to add feature" | Self-creates skill via skill-creator |
 | "Monitor this for 24 hours" | "I can only respond when you ask" | Creates scheduled task, monitors autonomously |
 | "Process this large file" | Blocks conversation, user waits | Runs in background, user continues |
-| "Learn to do X" | "Wait for developer to add feature" | Self-creates skill via skill-creator |
-
-### Design Philosophy
-
-```mermaid
-graph BT
-    classDef roof fill:#ffebee,stroke:#c62828,stroke-width:3px,color:#b71c1c,rx:10,ry:10;
-    classDef pillar fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1,rx:8,ry:8;
-    classDef base fill:#e8f5e9,stroke:#2e7d32,stroke-width:3px,color:#1b5e20,rx:10,ry:10;
-
-    Roof("FinchBot Framework<br/>Lightweight • Flexible • Infinite Extension"):::roof
-
-    subgraph Pillars [Core Philosophy]
-        direction LR
-        P("Privacy First<br/>Local Embedding<br/>Data Not Uploaded"):::pillar
-        M("Modular<br/>Factory Pattern<br/>Component Decoupling"):::pillar
-        D("Developer Friendly<br/>Type Safety<br/>Complete Docs"):::pillar
-        S("Fast Startup<br/>Full Async<br/>Thread Pool"):::pillar
-        O("Out of Box<br/>Zero Config<br/>Auto Fallback"):::pillar
-    end
-
-    Base("Tech Foundation<br/>LangChain v1.2 • LangGraph v1.0 • Python 3.13"):::base
-
-    Base === P & M & D & S & O
-    P & M & D & S & O === Roof
-```
-
-### Multi-Platform Messaging Support
-
-FinchBot provides production-grade multi-platform support via [LangBot](https://github.com/langbot-app/LangBot):
-
-**Supported Platforms**: QQ, WeChat (Official/Enterprise), Feishu, DingTalk, Discord, Telegram, Slack, LINE, KOOK, and 12+ more platforms
-
-```bash
-# Install LangBot
-uvx langbot
-
-# Access WebUI at http://localhost:5300
-# Configure your platforms and connect to FinchBot
-```
-
-### MCP (Model Context Protocol) Support
-
-FinchBot uses the official `langchain-mcp-adapters` library for MCP integration, supporting both **stdio** and **HTTP** transports:
-
-```bash
-# Install dependency
-uv add langchain-mcp-adapters
-
-# Configure MCP servers
-finchbot config
-# Select "MCP Configuration" option
-```
-
-MCP Features:
-- Dynamic tool discovery and registration
-- stdio and HTTP transports
-- Standardized tool calling interface
-- Support for multiple MCP servers
-
-### Command Line Interface
-
-FinchBot provides a fully functional CLI — four commands to get started:
-
-```bash
-# Step 1: Configure API Key and default model
-uv run finchbot config
-
-# Step 2: Manage sessions
-uv run finchbot sessions
-
-# Step 3: Start chatting
-uv run finchbot chat
-
-# Step 4: Manage scheduled tasks
-uv run finchbot cron
-```
-
-|          Feature          | Description                                                                         |
-| :----------------------: | :---------------------------------------------------------------------------------- |
-| **Environment Variables** | All configurations can be set via env vars (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) |
-|    **i18n Support**     | Built-in Chinese/English support, auto-detects system language                    |
-|    **Auto Fallback**    | Web search auto-fallback: Tavily → Brave → DuckDuckGo                             |
-| **Scheduled Tasks** | Interactive Cron manager with keyboard navigation                                       |
-| **Background Tasks** | Three-tool pattern for async execution of long-running tasks                            |
+| "Remember my preferences" | "I'll forget next conversation" | Persistent memory with Agentic RAG + Weighted RRF |
+| "Adjust your behavior" | "Prompts are fixed" | Dynamically modifies prompts, hot reload |
 
 ---
 
-## 2. System Architecture
+## System Architecture
 
-FinchBot is built on **LangChain v1.2** + **LangGraph v1.0**, an Agent system with persistent memory, dynamic tool scheduling, and multi-platform messaging support.
+**Core Philosophy**: FinchBot agents don't just respond — they self-execute, self-plan, and self-extend.
+
+### Autonomy Pyramid
+
+```mermaid
+flowchart TB
+    subgraph L4["Extension Layer - Self-Extend Capabilities"]
+        E1["MCP Auto-Config"] ~~~ E2["Skill Creation"] ~~~ E3["Dynamic Loading"]
+    end
+
+    subgraph L3["Planning Layer - Self-Create Plans"]
+        P1["Cron Tasks"] ~~~ P2["Heartbeat Monitor"] ~~~ P3["Auto Trigger"]
+    end
+
+    subgraph L2["Execution Layer - Self-Execute Tasks"]
+        X1["Background Tasks"] ~~~ X2["Async Processing"] ~~~ X3["Non-Blocking"]
+    end
+
+    subgraph L1["Response Layer - Respond to Requests"]
+        R1["Dialog System"] ~~~ R2["Tool Calls"] ~~~ R3["Context Memory"]
+    end
+
+    L4 --> L3 --> L2 --> L1
+
+    style L1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    style L2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    style L3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    style L4 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17
+```
+
+| Layer | Capability | Implementation | User Value |
+|:---:|:---|:---|:---|
+| **Response Layer** | Respond to user requests | Dialog system + Tool calls | Basic interaction |
+| **Execution Layer** | Self-execute tasks | Background task system | Non-blocking dialog |
+| **Planning Layer** | Self-create plans | Scheduled tasks + Heartbeat | Automated execution |
+| **Extension Layer** | Self-extend capabilities | MCP config + Skill creation | Infinite extension |
 
 ### Overall Architecture
 
@@ -179,18 +111,18 @@ graph TB
 
     subgraph UI [User Interaction Layer]
         CLI[CLI Interface]:::uiLayer
-        Channels[Multi-Platform<br/>Discord/DingTalk/Feishu/WeChat/Email]:::uiLayer
+        Channels[Multi-platform Channels<br/>Discord/DingTalk/Feishu/WeChat/Email]:::uiLayer
     end
 
-    subgraph Core [Agent Core Layer]
+    subgraph Core [Agent Core]
         Agent[LangGraph Agent<br/>Decision Engine]:::coreLayer
-        Context[ContextBuilder<br/>Prompt Assembly]:::coreLayer
-        Tools[ToolRegistry<br/>15 Built-in Tools + MCP]:::coreLayer
-        Memory[MemoryManager<br/>Dual-Layer Memory]:::coreLayer
+        Context[ContextBuilder<br/>Context Building]:::coreLayer
+        Tools[ToolRegistry<br/>24 Built-in Tools + MCP]:::coreLayer
+        Memory[MemoryManager<br/>Dual-layer Memory]:::coreLayer
     end
 
     subgraph Infra [Infrastructure Layer]
-        Storage[Dual-Layer Storage<br/>SQLite + VectorStore]:::infraLayer
+        Storage[Dual-layer Storage<br/>SQLite + VectorStore]:::infraLayer
         LLM[LLM Providers<br/>OpenAI/Anthropic/DeepSeek]:::infraLayer
     end
 
@@ -223,264 +155,96 @@ sequenceDiagram
     C->>B: InboundMessage
     B->>F: Get/Create Agent
     F->>A: Return Compiled Agent
-
+  
     Note over A: Build Context
-    A->>M: Recall Relevant Memory
+    A->>M: Recall Relevant Memories
     M-->>A: Return Context
-
+  
     A->>L: Send Request
-    L-->>A: Streaming Response
-
-    alt Tool Calling Needed
+    L-->>A: Stream Response
+  
+    alt Tool Call Needed
         A->>T: Execute Tool
         T-->>A: Return Result
-        A->>L: Continue Processing
+        A->>L: Continue with Result
         L-->>A: Final Response
     end
-
-    A->>M: Store New Memory
+  
+    A->>M: Store New Memories
     A->>B: OutboundMessage
     B->>C: Route to Channel
     C->>U: Display Response
 ```
 
-### Directory Structure
+### Safety Mechanisms
 
-```
-finchbot/
-├── agent/              # Agent Core
-│   ├── core.py        # Agent creation and execution
-│   ├── factory.py     # AgentFactory component assembly
-│   ├── context.py     # ContextBuilder prompt assembly
-│   ├── capabilities.py # CapabilitiesBuilder capability building
-│   └── skills.py      # SkillsLoader Markdown skill loading
-├── channels/           # Multi-platform messaging (via LangBot)
-│   ├── base.py        # BaseChannel abstract base class
-│   ├── bus.py         # MessageBus async router
-│   ├── manager.py     # ChannelManager coordinator
-│   ├── schema.py      # Message models
-│   └── langbot_integration.py  # LangBot integration guide
-├── cli/                # Command Line Interface
-│   ├── chat_session.py
-│   ├── config_manager.py
-│   ├── providers.py
-│   └── ui.py
-├── config/             # Configuration Management
-│   ├── loader.py
-│   ├── schema.py      # Includes MCPConfig, ChannelsConfig
-│   └── utils.py
-├── constants.py        # Unified constants
-├── i18n/               # Internationalization
-│   ├── loader.py      # Language loader
-│   └── locales/
-├── memory/             # Memory System
-│   ├── manager.py
-│   ├── types.py
-│   ├── services/       # Service Layer
-│   ├── storage/        # Storage Layer
-│   └── vector_sync.py
-├── providers/          # LLM Providers
-│   └── factory.py
-├── sessions/           # Session Management
-│   ├── metadata.py
-│   ├── selector.py
-│   └── title_generator.py
-├── skills/             # Skill System
-│   ├── skill-creator/
-│   ├── summarize/
-│   └── weather/
-├── tools/              # Tool System
-│   ├── base.py
-│   ├── factory.py     # ToolFactory (MCP tools via langchain-mcp-adapters)
-│   ├── registry.py
-│   ├── filesystem.py
-│   ├── memory.py
-│   ├── shell.py
-│   ├── web.py
-│   ├── session_title.py
-│   └── search/
-└── utils/              # Utilities
-    ├── cache.py
-    ├── logger.py
-    └── model_downloader.py
-```
+**Agent autonomy doesn't mean agent anarchy.** FinchBot implements multiple safety layers:
+
+| Safety Mechanism | Status | What It Does |
+|:---|:---:|:---|
+| **Path Restrictions** | ✅ Implemented | File operations limited to workspace directory |
+| **Shell Command Blacklist** | ✅ Implemented | Blocks dangerous commands like `rm -rf`, `format`, `shutdown` |
+| **Tool Registration** | ✅ Implemented | Only registered tools can be executed |
+
+**Philosophy**: Give agents the freedom to solve problems, but within well-defined boundaries.
 
 ---
 
-## 3. Core Components
+## Core Components
 
-### 3.1 Memory Architecture: Dual-Layer Storage + Agentic RAG
+### 1. Capability Self-Extension: Built-in Tools + MCP Config + Skill Creation
 
-FinchBot implements an advanced **dual-layer memory architecture**, completely solving LLM context window limitations and long-term memory forgetting problems.
+FinchBot provides a three-layer capability extension mechanism, allowing agents to self-extend when hitting capability boundaries.
 
-#### Why Agentic RAG?
-
-|     Comparison Dimension      | Traditional RAG     | Agentic RAG (FinchBot)          |
-| :----------------------------: | :------------------ | :------------------------------ |
-|      **Retrieval Trigger**   | Fixed flow         | Agent autonomous decision       |
-|      **Retrieval Strategy**   | Single vector      | Hybrid + dynamic weights        |
-|      **Memory Management**   | Passive storage    | Active remember/recall/forget   |
-|       **Classification**      | None               | Auto classification + scoring   |
-|       **Update Mechanism**    | Full rebuild       | Incremental sync                |
-
-#### Dual-Layer Storage Architecture
+#### Three-Layer Extension Mechanism
 
 ```mermaid
-flowchart TB
-    classDef businessLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef serviceLayer fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef storageLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+flowchart LR
+    classDef layer1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef layer2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef layer3 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
 
-    MM[MemoryManager<br/>remember/recall/forget]:::businessLayer
-
-    RS[RetrievalService<br/>Hybrid + RRF]:::serviceLayer
-    CS[ClassificationService<br/>Auto Classification]:::serviceLayer
-    IS[ImportanceScorer<br/>Importance Scoring]:::serviceLayer
-    ES[EmbeddingService<br/>FastEmbed Local]:::serviceLayer
-
-    SQLite[(SQLiteStore<br/>Source of Truth<br/>Precise Query)]:::storageLayer
-    Vector[(VectorStore<br/>ChromaDB<br/>Semantic Search)]:::storageLayer
-    DS[DataSyncManager<br/>Incremental Sync]:::storageLayer
-
-    MM --> RS & CS & IS
-    RS --> SQLite & Vector
-    CS --> SQLite
-    IS --> SQLite
-    ES --> Vector
-
-    SQLite <--> DS <--> Vector
+    L1[Layer 1<br/>Built-in Tools<br/>Ready to Use]:::layer1 --> L2[Layer 2<br/>MCP Config<br/>Agent Self-Config]:::layer2 --> L3[Layer 3<br/>Skill Creation<br/>Agent Self-Create]:::layer3
 ```
 
-#### Hybrid Retrieval Strategy
+| Layer | Method | Autonomy | Description |
+|:---:|:---|:---:|:---|
+| Layer 1 | Built-in Tools | Ready to use | 24 built-in tools, no configuration needed |
+| Layer 2 | MCP Config | Agent self-config | Dynamically add external capabilities via `configure_mcp` |
+| Layer 3 | Skill Creation | Agent self-create | Create new skills via `skill-creator` |
 
-FinchBot uses **Weighted RRF (Weighted Reciprocal Rank Fusion)** strategy:
+#### Built-in Tools
 
-```python
-class QueryType(StrEnum):
-    """Query type determines retrieval weights"""
-    KEYWORD_ONLY = "keyword_only"      # Pure keyword (1.0/0.0)
-    SEMANTIC_ONLY = "semantic_only"    # Pure semantic (0.0/1.0)
-    FACTUAL = "factual"                # Factual (0.8/0.2)
-    CONCEPTUAL = "conceptual"          # Conceptual (0.2/0.8)
-    COMPLEX = "complex"                # Complex (0.5/0.5)
-    AMBIGUOUS = "ambiguous"            # Ambiguous (0.3/0.7)
-```
+|      Category      | Tool              | Function                      |
+| :----------------: | :---------------- | :---------------------------- |
+| **File Ops** | `read_file`     | Read local files              |
+|                    | `write_file`    | Write local files             |
+|                    | `edit_file`     | Edit file content             |
+|                    | `list_dir`      | List directory contents       |
+| **Network** | `web_search`    | Web search (Tavily/Brave/DDG) |
+|                    | `web_extract`   | Web content extraction        |
+|  **Memory**  | `remember`      | Proactively store memories    |
+|                    | `recall`        | Retrieve memories             |
+|                    | `forget`        | Delete/archive memories       |
+|  **System**  | `exec`          | Secure shell execution        |
+|                    | `session_title` | Manage session titles         |
+|  **Configuration**  | `configure_mcp` | Dynamically configure MCP servers (enable/disable/add/update/remove/list) |
+|                    | `refresh_capabilities` | Refresh capabilities file |
+|                    | `get_capabilities` | Get current capabilities  |
+|                    | `get_mcp_config_path` | Get MCP config path   |
+| **Background** | `start_background_task` | Start background task |
+|                    | `check_task_status` | Check task status     |
+|                    | `get_task_result` | Get task result         |
+|                    | `cancel_task`   | Cancel task                  |
+| **Scheduled** | `create_cron`   | Create scheduled task        |
+|                    | `list_crons`    | List all scheduled tasks     |
+|                    | `delete_cron`   | Delete scheduled task        |
+|                    | `toggle_cron`   | Enable/disable scheduled task |
+|                    | `run_cron_now`  | Execute scheduled task now   |
 
-### 3.2 Dynamic Prompt System: User-Editable Agent Brain
+##### Web Search
 
-FinchBot's prompt system uses **file system + modular assembly** design.
-
-#### Bootstrap File System
-
-```
-~/.finchbot/
-├── config.json              # Main configuration file
-└── workspace/
-    ├── bootstrap/           # Bootstrap files directory
-    │   ├── SYSTEM.md        # Role definition
-    │   ├── MEMORY_GUIDE.md  # Memory usage guide
-    │   ├── SOUL.md          # Soul settings (personality)
-    │   └── AGENT_CONFIG.md  # Agent configuration
-    ├── config/              # Configuration directory
-    │   └── mcp.json         # MCP server configuration
-    ├── generated/           # Auto-generated files
-    │   ├── TOOLS.md         # Tool documentation
-    │   └── CAPABILITIES.md  # Capabilities info
-    ├── skills/              # Custom skills
-    ├── memory/              # Memory storage
-    └── sessions/            # Session data
-```
-
-#### Prompt Loading Process
-
-```mermaid
-flowchart TD
-    classDef startEnd fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
-    classDef process fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef file fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef output fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-
-    A([Agent Start]):::startEnd --> B[Load Bootstrap Files]:::process
-
-    B --> C[bootstrap/SYSTEM.md]:::file
-    B --> D[bootstrap/MEMORY_GUIDE.md]:::file
-    B --> E[bootstrap/SOUL.md]:::file
-    B --> F[bootstrap/AGENT_CONFIG.md]:::file
-
-    C --> G[Assemble Prompts]:::process
-    D --> G
-    E --> G
-    F --> G
-
-    G --> H[Load Always-On Skills]:::process
-    H --> I[Build Skills Summary XML]:::process
-    I --> J[Generate Tool Docs TOOLS.md]:::process
-    J --> K[Generate Capabilities CAPABILITIES.md]:::process
-    K --> L[Inject Runtime Info]:::process
-    L --> M[Complete System Prompt]:::output
-
-    M --> N([Send to LLM]):::startEnd
-```
-
-### 3.3 Tool System: Code-Level Capability Extension
-
-Tools are the bridge between Agent and the external world. FinchBot provides 15 built-in tools with easy extensibility.
-
-#### Tool System Architecture
-
-```mermaid
-flowchart TB
-    classDef registry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef builtin fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef mcp fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#7b1fa2;
-    classDef agent fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-
-    TR[ToolRegistry<br/>Global Registry]:::registry
-    Lock[Single Lock<br/>Thread-Safe Singleton]:::registry
-
-    subgraph BuiltIn [Built-in Tools - 15]
-        File[File Operations<br/>read/write/edit/list]:::builtin
-        Web[Network<br/>search/extract]:::builtin
-        Memory[Memory<br/>remember/recall/forget]:::builtin
-        System[System<br/>exec/session_title]:::builtin
-        Config[Configuration<br/>configure_mcp/refresh_capabilities<br/>get_capabilities/get_mcp_config_path]:::builtin
-    end
-
-    subgraph MCP [MCP Tools - langchain-mcp-adapters]
-        MCPConfig[MCPServerConfig<br/>stdio/HTTP Config]:::mcp
-        MCPClient[MultiServerMCPClient<br/>Official Client]:::mcp
-        MCPTools[MCP Tools<br/>External Tools]:::mcp
-    end
-
-    Agent[Agent Call]:::agent
-
-    TR --> Lock
-    Lock --> BuiltIn
-    MCPConfig --> MCPClient --> MCPTools --> TR
-    TR --> Agent
-```
-
-#### Built-in Tools Overview
-
-|       Category       | Tool              | Function                       |
-| :------------------: | :---------------- | :------------------------------ |
-| **File Operations** | `read_file`     | Read local files               |
-|                     | `write_file`    | Write local files              |
-|                     | `edit_file`     | Edit file content              |
-|                     | `list_dir`      | List directory contents        |
-|  **Network**        | `web_search`    | Web search (Tavily/Brave/DDG)  |
-|                     | `web_extract`   | Web content extraction         |
-|  **Memory**         | `remember`      | Active memory storage          |
-|                     | `recall`        | Memory retrieval               |
-|                     | `forget`        | Delete/archive memory          |
-|  **System**         | `exec`          | Safe shell command execution   |
-|                     | `session_title` | Manage session title           |
-|  **Configuration**  | `configure_mcp` | Dynamically configure MCP servers (supports enable/disable) |
-|                     | `refresh_capabilities` | Refresh capabilities file |
-|                     | `get_capabilities` | Get current capabilities  |
-|                     | `get_mcp_config_path` | Get MCP config path   |
-
-#### Web Search: Three-Engine Fallback Design
+`web_search` tool uses a three-engine fallback design, ensuring it always works:
 
 ```mermaid
 flowchart TD
@@ -489,13 +253,13 @@ flowchart TD
     classDef fallback fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
 
     Start[Web Search Request]:::check
-
+    
     Check1{TAVILY_API_KEY<br/>Set?}:::check
-    Tavily[Tavily<br/>Best Quality<br/>AI Optimized]:::engine
-
+    Tavily[Tavily<br/>Best Quality<br/>AI-Optimized]:::engine
+    
     Check2{BRAVE_API_KEY<br/>Set?}:::check
     Brave[Brave Search<br/>Privacy Friendly<br/>Large Free Tier]:::engine
-
+    
     DDG[DuckDuckGo<br/>Zero Config<br/>Always Available]:::fallback
 
     Start --> Check1
@@ -505,25 +269,25 @@ flowchart TD
     Check2 -->|No| DDG
 ```
 
-| Priority |      Engine       | API Key | Features                                |
-| :-------: | :---------------: | :------: | :-------------------------------------- |
-|    1    |    **Tavily**    | Required | Best quality, AI optimized, deep search |
-|    2    | **Brave Search** | Required | Large free tier, privacy friendly      |
-|    3    |  **DuckDuckGo**  | Not required | Always available, zero config      |
+| Priority |         Engine         |   API Key   | Features                                |
+| :------: | :--------------------: | :----------: | :-------------------------------------- |
+|    1    |    **Tavily**    |   Required   | Best quality, AI-optimized, deep search |
+|    2    | **Brave Search** |   Required   | Large free tier, privacy-friendly       |
+|    3    |  **DuckDuckGo**  | Not required | Always available, zero config           |
 
-**How it works**:
+##### Session Management
 
-1. If `TAVILY_API_KEY` is set → Use Tavily (best quality)
-2. Otherwise if `BRAVE_API_KEY` is set → Use Brave Search
-3. Otherwise → Use DuckDuckGo (no API Key needed, always available)
+`session_title` tool makes session naming smart:
 
-This design ensures **web search works out of the box even without any API Key configured**!
+|         Method         | Description                                                        | Example                                  |
+| :---------------------: | :----------------------------------------------------------------- | :--------------------------------------- |
+| **Auto Generate** | After 2-3 turns, AI automatically generates title based on content | "Python Async Programming Discussion"    |
+| **Agent Modify** | Tell Agent "Change session title to XXX"                           | Agent calls tool to modify automatically |
+| **Manual Rename** | Press `r` key in session manager to rename                       | User manually enters new title           |
 
-#### Agent Self-Configuration: Dynamic MCP Management
+#### MCP Configuration
 
-FinchBot's Agent can autonomously manage MCP servers through the `configure_mcp` tool, enabling dynamic capability expansion without manual configuration file editing.
-
-**Supported Operations**:
+Agents can autonomously manage MCP servers through the `configure_mcp` tool:
 
 | Operation | Description |
 | :--- | :--- |
@@ -534,9 +298,7 @@ FinchBot's Agent can autonomously manage MCP servers through the `configure_mcp`
 | `disable` | Temporarily disable MCP server |
 | `list` | List all configured servers |
 
-**Dynamic Prompt Updates**:
-
-When MCP configuration changes, the Agent can refresh capability descriptions through `refresh_capabilities`, ensuring the system prompt always reflects current capabilities.
+**Dynamic Capability Updates**:
 
 ```mermaid
 flowchart LR
@@ -547,301 +309,92 @@ flowchart LR
     MCP[MCP Config<br/>configure_mcp]:::config --> Refresh[refresh_capabilities]:::system --> Builder[CapabilitiesBuilder<br/>Regenerate]:::system --> Write[CAPABILITIES.md]:::prompt --> Load[Next Session<br/>Auto-Load]:::prompt
 ```
 
-### 3.4 Skill System: Define Agent Capabilities with Markdown
+#### Skill Creation
 
-Skills are FinchBot's unique innovation — **define Agent capability boundaries using Markdown files**.
-
-#### Killer Feature: Agent Auto-Creates Skills
-
-FinchBot has a built-in **skill-creator** skill, the ultimate embodiment of the out-of-box philosophy:
-
-> **Just tell the Agent what skill you want, and it will automatically create it!**
+FinchBot includes a built-in **skill-creator** skill, allowing agents to autonomously create new skills:
 
 ```
-User: Help me create a translation skill that translates Chinese to English.
+User: Help me create a translation skill that can translate Chinese to English
 
-Agent: Sure, I'll create a translation skill for you...
-       [Calling skill-creator skill]
-       Created skills/translator/SKILL.md
-       You can now use the translation feature!
+Agent: Okay, I'll create a translation skill for you...
+       [Invokes skill-creator skill]
+       ✅ Created skills/translator/SKILL.md
+       You can now use the translation feature directly!
 ```
 
-No need to manually create files or write code — **one sentence extends Agent capabilities**!
+No manual file creation, no coding—**extend Agent capabilities with just one sentence**!
 
 #### Skill File Structure
 
 ```
 skills/
-├── skill-creator/        # Skill Creator (built-in) - Core feature
+├── skill-creator/        # Skill creator (Built-in) - Core of out-of-the-box
 │   └── SKILL.md
-├── summarize/            # Smart Summary (built-in)
+├── summarize/            # Intelligent summarization (Built-in)
 │   └── SKILL.md
-├── weather/              # Weather Query (built-in)
+├── weather/              # Weather query (Built-in)
 │   └── SKILL.md
-└── my-custom-skill/      # Auto-created by Agent or user-defined
+└── my-custom-skill/      # Agent auto-created or user-defined
     └── SKILL.md
 ```
 
-#### Core Design Highlights
+#### Design Highlights
 
-|        Feature         | Description                                |
-| :--------------------: | :---------------------------------------- |
-| **Agent Auto-Create** | Tell Agent requirements, auto-generate   |
-|  **Dual-Layer Source** | Workspace skills first, built-in backup |
-|   **Dependency Check** | Auto-check CLI tools and env vars        |
-|  **Cache Invalidation** | Based on file modification time        |
-|   **Progressive Load** | Always-on skills first, on-demand others  |
+|            Feature            | Description                                       |
+| :---------------------------: | :------------------------------------------------ |
+|  **Agent Auto-Create**  | Tell Agent your needs, auto-generates skill files |
+|  **Dual Skill Source**  | Workspace skills first, built-in skills fallback  |
+|  **Dependency Check**  | Auto-check CLI tools and environment variables    |
+| **Cache Invalidation** | Smart caching based on file modification time     |
+| **Progressive Loading** | Always-on skills first, others on demand          |
 
-### 3.5 Channel System: Multi-Platform Messaging Support
+### 2. Task Self-Scheduling: Background Tasks + Scheduled Tasks + Heartbeat Service
 
-FinchBot provides production-grade multi-platform messaging support via [LangBot](https://github.com/langbot-app/LangBot).
+FinchBot implements a three-layer task scheduling mechanism, enabling agents to autonomously execute, plan, and monitor tasks.
 
-```mermaid
-flowchart LR
-    classDef bus fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef manager fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef channel fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-
-    FinchBot[FinchBot<br/>Agent Core]:::bus
-    LangBot[LangBot<br/>Platform Layer]:::manager
-
-    QQ[QQ]:::channel
-    WeChat[WeChat]:::channel
-    Feishu[Feishu]:::channel
-    DingTalk[DingTalk]:::channel
-    Discord[Discord]:::channel
-    Telegram[Telegram]:::channel
-    Slack[Slack]:::channel
-
-    FinchBot <--> LangBot
-    LangBot <--> QQ & WeChat & Feishu & DingTalk & Discord & Telegram & Slack
-```
-
-**LangBot Features**:
-- **15k+ GitHub Stars**, actively maintained
-- **Supports 12+ platforms**: QQ, WeChat, WeCom, Feishu, DingTalk, Discord, Telegram, Slack, LINE, KOOK, Satori
-- **Built-in WebUI**: Visual configuration for all platforms
-- **Plugin ecosystem**: Supports MCP and other extensions
-
-### 3.6 LangChain 1.2 Architecture Practice
-
-FinchBot is built on **LangChain v1.2** and **LangGraph v1.0**, using the latest Agent architecture.
-
-```python
-from langchain.agents import create_agent
-from langgraph.checkpoint.sqlite import SqliteSaver
-
-def create_finch_agent(
-    model: BaseChatModel,
-    workspace: Path,
-    tools: Sequence[BaseTool] | None = None,
-    use_persistent: bool = True,
-) -> tuple[CompiledStateGraph, SqliteSaver | MemorySaver]:
-
-    # 1. Initialize checkpointer (persistent state)
-    if use_persistent:
-        checkpointer = SqliteSaver.from_conn_string(str(db_path))
-    else:
-        checkpointer = MemorySaver()
-
-    # 2. Build system prompt
-    system_prompt = build_system_prompt(workspace)
-
-    # 3. Create Agent (using LangChain official API)
-    agent = create_agent(
-        model=model,
-        tools=list(tools) if tools else None,
-        system_prompt=system_prompt,
-        checkpointer=checkpointer,
-    )
-
-    return agent, checkpointer
-```
-
-#### Supported LLM Providers
-
-|   Provider   | Models                        | Features              |
-| :-----------: | :---------------------------- | :-------------------- |
-|   OpenAI   | GPT-5, GPT-5.2, O3-mini      | Most capable         |
-|  Anthropic  | Claude Sonnet 4.5, Opus 4.6  | High security, long  |
-|  DeepSeek   | DeepSeek Chat, Reasoner       | Best value           |
-|   Gemini   | Gemini 2.5 Flash              | Google's latest      |
-|    Groq    | Llama 4 Scout/Maverick       | Fastest inference    |
-|  Moonshot   | Kimi K1.5/K2.5               | Long context          |
-
----
-
-## 4. Quick Start
-
-### Prerequisites
-
-|    Item    | Requirement                |
-| :--------: | :------------------------ |
-|    OS      | Windows / Linux / macOS  |
-|  Python    | 3.13+                     |
-|   Package Manager | uv (recommended)   |
-
-### Installation Steps
-
-```bash
-# Clone repository (choose one)
-# Gitee (recommended for China)
-git clone https://gitee.com/xt765/FinchBot.git
-# or GitHub
-git clone https://github.com/xt765/FinchBot.git
-
-cd finchbot
-
-# Install dependencies
-uv sync
-```
-
-> **Note**: The embedding model (~95MB) will be automatically downloaded to local on first run (e.g., running `finchbot chat`). No manual intervention needed.
-
-### Best Practice: Three Steps to Start
-
-```bash
-# Step 1: Configure API Key and default model
-uv run finchbot config
-
-# Step 2: Manage your sessions
-uv run finchbot sessions
-
-# Step 3: Start chatting
-uv run finchbot chat
-```
-
-That's it! These three commands cover the complete workflow:
-
-- `finchbot config` — Interactive configuration of LLM provider, API keys, and settings
-- `finchbot sessions` — Full-screen session manager, create/rename/delete sessions
-- `finchbot chat` — Start or continue interactive dialogue
-
-### Docker Deployment
-
-FinchBot provides official Docker support for one-click deployment:
-
-```bash
-# Clone repository
-git clone https://gitee.com/xt765/FinchBot.git
-cd finchbot
-
-# Create .env file and configure API keys
-cp .env.example .env
-# Edit .env to add your API keys
-
-# Build and run
-docker-compose up -d
-
-# Use CLI
-docker exec -it finchbot finchbot chat
-```
-
-|      Feature       | Description                              |
-| :----------------: | :--------------------------------------- |
-| **One-click deploy** | `docker-compose up -d`                 |
-| **Persistent storage** | Manage workspace and cache via volumes |
-|  **Health check**  | Built-in container health monitoring   |
-| **Multi-arch**     | Supports x86_64 and ARM64              |
-
----
-
-## 5. Tech Stack
-
-|      Layer      | Technology              |  Version  |
-| :-------------: | :--------------------- | :--------: |
-|  Base Language  | Python                 |   3.13+    |
-|  Agent Framework | LangChain              | 1.2.10+    |
-|  State Management| LangGraph             |  1.0.8+    |
-| Data Validation | Pydantic               |    v2      |
-| Vector Store    | ChromaDB               |  0.5.0+    |
-| Local Embedding | FastEmbed              |  0.4.0+    |
-| Search Enhance  | BM25                   |  0.2.2+    |
-|  CLI Framework  | Typer                  | 0.23.0+    |
-|    Rich Text    | Rich                   |  14.3+     |
-|     Logging     | Loguru                 |  0.7.3+    |
-|  Config Manage  | Pydantic Settings     | 2.12.0+    |
-
----
-
-## 6. Project Advantages
-
-|       Advantage        | Description                                                                 |
-| :-------------------: | :-------------------------------------------------------------------------- |
-|   **Breaks Capability Boundaries**   | Agent self-configures MCP and creates skills when facing limits              |
-|   **Non-Blocking Execution**   | Long tasks run in background, conversations continue              |
-|   **Autonomous Scheduling**   | Agent self-creates Cron tasks, runs 24/7             |
-| **Safe Autonomy** | File operations restricted to workspace, dangerous shell commands blocked |
-|   **Persistent Memory**   | Dual-layer storage + Agentic RAG, never forgets      |
-|   **Privacy First**   | Using FastEmbed for local vector generation, no data uploaded to cloud     |
-|  **Production Ready** | Single lock mode, auto-retry, timeout control                               |
-|  **Flexible Extension** | Inherit FinchTool or create SKILL.md to extend, no core code changes      |
-|  **Model Agnostic**   | Supports OpenAI, Anthropic, Gemini, DeepSeek, Moonshot, Groq, etc.        |
-| **Multi-Platform**    | Via LangBot supports QQ, WeChat, Feishu, DingTalk, Discord, Telegram, Slack and 12+ platforms |
-| **MCP Support**       | Via official langchain-mcp-adapters supporting stdio and HTTP transports |
-
----
-
-## 4. Agent Autonomy Architecture
-
-**Core Philosophy**: FinchBot is designed to give agents **true autonomy**—not just responding to user requests, but self-deciding, self-executing, and self-extending.
-
-### Autonomy Pyramid
+#### Three-Layer Scheduling Mechanism
 
 ```mermaid
-flowchart LR
-    subgraph L1["Response Layer"]
-        R1["Dialog System"]
-        R2["Tool Calls"]
-        R3["Context Memory"]
+flowchart TB
+    classDef layer1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef layer2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef layer3 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
+
+    subgraph L3["Monitor Layer - Heartbeat Service"]
+        H1[Self-Wakeup] ~~~ H2[Periodic Check] ~~~ H3[Proactive Notify]
     end
 
-    subgraph L2["Execution Layer"]
-        X1["Background Tasks"]
-        X2["Async Processing"]
-        X3["Non-Blocking"]
+    subgraph L2["Planning Layer - Scheduled Tasks"]
+        C1[Cron Schedule] ~~~ C2[Periodic Execute] ~~~ C3[Auto Retry]
     end
 
-    subgraph L3["Planning Layer"]
-        P1["Cron Tasks"]
-        P2["Heartbeat Monitor"]
-        P3["Auto Trigger"]
+    subgraph L1["Execution Layer - Background Tasks"]
+        B1[Async Execute] ~~~ B2[Non-Blocking] ~~~ B3[Result Fetch]
     end
 
-    subgraph L4["Extension Layer"]
-        E1["MCP Auto-Config"]
-        E2["Skill Creation"]
-        E3["Dynamic Loading"]
-    end
-
-    L1 --> L2 --> L3 --> L4
+    L3 --> L2 --> L1
 
     style L1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
     style L2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
-    style L3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
-    style L4 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17
+    style L3 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17
 ```
 
-| Layer | Capability | Implementation | User Value |
+| Layer | Function | Features | Use Case |
 |:---:|:---|:---|:---|
-| **Response Layer** | Respond to user requests | Dialog system + Tool calls | Basic interaction |
-| **Execution Layer** | Self-execute tasks | Background task system | Non-blocking dialog |
-| **Planning Layer** | Self-create plans | Scheduled tasks + Heartbeat | Automated execution |
-| **Extension Layer** | Self-extend capabilities | MCP config + Skill creation | Infinite extension |
+| Execution Layer | Background Tasks | Async execution, non-blocking dialog | Long-running tasks |
+| Planning Layer | Scheduled Tasks | Periodic execution, automated running | Regular reminders, scheduled reports |
+| Monitor Layer | Heartbeat Service | Proactive check, self-wakeup | Condition monitoring, status tracking |
 
-### Autonomy Comparison
+#### Background Tasks
 
-| Capability | Traditional Agent | FinchBot Autonomous Agent |
-|:---|:---|:---|
-| **Task Execution** | User-triggered, blocking wait | Agent self-starts background tasks |
-| **Task Scheduling** | User manually sets | Agent self-creates scheduled tasks |
-| **Self-Monitoring** | None | Heartbeat service self-checks status |
-| **Capability Extension** | Developer writes code | Agent self-configures MCP |
-| **Behavior Definition** | Hardcoded prompts | Agent self-creates skills |
+FinchBot implements a **four-tool pattern** for asynchronous task execution:
 
-### Background Task System (Subagent)
-
-FinchBot implements an advanced background task system using a **three-tool pattern** that allows agents to asynchronously execute long-running tasks.
+| Tool | Function | Agent Autonomy |
+| :--- | :--- | :--- |
+| `start_background_task` | Start background task | Agent self-determines if background execution needed |
+| `check_task_status` | Check task status | Agent self-decides when to check |
+| `get_task_result` | Get task result | Agent self-decides when to get result |
+| `cancel_task` | Cancel task | Agent self-decides whether to cancel |
 
 ```mermaid
 sequenceDiagram
@@ -873,99 +426,579 @@ sequenceDiagram
     A-->>U: Task result display
 ```
 
-| Tool | Function | Agent Autonomy |
-|:---|:---|:---|
-| `start_background_task` | Start background task | Agent self-determines if background execution needed |
-| `check_task_status` | Check task status | Agent self-decides when to check |
-| `get_task_result` | Get task result | Agent self-decides when to get result |
-| `cancel_task` | Cancel task | Agent self-decides whether to cancel |
+#### Scheduled Tasks
 
-### Scheduled Task System (Cron)
+FinchBot's scheduled task system enables agents to autonomously create and manage periodic tasks:
 
-FinchBot provides a complete scheduled task solution supporting both **CLI interactive management** and **tool calls**.
+```mermaid
+flowchart LR
+    classDef agent fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef system fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef action fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
 
-**Cron Expression Examples**:
+    Agent[Agent Creates Task]:::agent --> Scheduler[Cron Scheduler]:::system
+    Scheduler --> |Trigger| Execute[Execute Task]:::action
+    Execute --> |Success| Notify[Notify User]:::action
+    Execute --> |Failure| Retry[Auto Retry]:::action
+```
+
+**Core Features**:
+
+| Feature | Description |
+| :--- | :--- |
+| **Cron Expressions** | Standard Cron syntax for flexible scheduling |
+| **Persistent Storage** | Tasks saved in SQLite, auto-recover after restart |
+| **Auto Retry** | Automatic retry on failure for reliability |
+| **Status Tracking** | Execution history for audit and debugging |
+
+**Common Cron Expressions**:
 
 | Expression | Description |
-|:---|:---|
+| :--- | :--- |
 | `0 9 * * *` | Daily at 9:00 AM |
 | `0 */2 * * *` | Every 2 hours |
 | `30 18 * * 1-5` | Weekdays at 6:30 PM |
 | `0 0 1 * *` | First day of month at midnight |
+| `0 0 * * 0` | Every Sunday at midnight |
 
-**Interactive Interface**:
+**Usage Example**:
 
-| Key | Action |
-|:---:|:---|
-| ↑ / ↓ | Navigate task list |
-| Enter | View task details |
-| n | Create new task |
-| d | Delete selected task |
-| e | Enable/disable task |
-| r | Execute immediately |
-| q | Quit management |
+```
+User: Remind me to check emails every morning at 9
 
-### Heartbeat Service
+Agent: Okay, I'll create a scheduled task...
+       [Invokes create_cron tool]
+       ✅ Scheduled task created
+       - Trigger: Daily at 09:00
+       - Task: Remind to check emails
+       - Next run: Tomorrow 09:00
+```
 
-The heartbeat service is FinchBot's background monitoring service, implementing automated task triggering through periodic reading of the `HEARTBEAT.md` file.
+#### Heartbeat Service
+
+The heartbeat service enables the Agent to periodically "wake up" and check for pending tasks, achieving true autonomous operation.
 
 ```mermaid
 flowchart LR
-    classDef heartbeat fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef cron fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef background fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
-    classDef notify fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef trigger fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef decision fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef action fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
 
-    H[HeartbeatService]:::heartbeat
-    C[CronService]:::cron
-    B[BackgroundTasks]:::background
-    N[Notification System]:::notify
-
-    H --> |Trigger execution| C
-    H --> |Check status| B
-    H --> |Send reminder| N
+    Timer[Timer<br/>Default 30 min]:::trigger --> |Wakeup| Check[Check HEARTBEAT.md]:::decision
+    Check --> |Has Tasks| LLM[LLM Decision]:::decision
+    LLM --> |run| Execute[Execute Task]:::action
+    LLM --> |skip| Wait[Continue Waiting]:::trigger
 ```
 
-### MCP Self-Configuration
+**Core Features**:
 
-**Core Philosophy**: Enable agents to autonomously configure MCP servers, dynamically extending their tool capabilities.
+| Feature | Description |
+| :--- | :--- |
+| **Self-Wakeup** | Agent proactively checks without user trigger |
+| **LLM Decision** | LLM intelligently decides whether to execute tasks |
+| **Flexible Config** | Customizable check interval (default 30 minutes) |
+| **Session Bound** | Starts and stops with chat session |
+
+**Workflow**:
+
+1. Agent automatically starts heartbeat service during conversation
+2. Periodically checks `HEARTBEAT.md` file at specified intervals
+3. If content exists, LLM decides whether to execute
+4. LLM returns `run` to execute, `skip` to wait for next check
+
+**Usage Example**:
+
+```
+User: Monitor stock price for me, notify when it drops below 100
+
+Agent: Okay, I'll record this task in HEARTBEAT.md...
+       The heartbeat service will periodically check the stock price
+       You'll be notified when the condition is met
+```
+
+### 3. Memory Self-Management: Agentic RAG + Weighted RRF Hybrid Retrieval
+
+FinchBot implements an advanced dual-layer memory architecture, enabling agents to autonomously remember, retrieve, and forget.
+
+#### Agentic RAG Advantages
+
+|          Dimension          | Traditional RAG         | Agentic RAG (FinchBot)                       |
+| :--------------------------: | :---------------------- | :------------------------------------------- |
+| **Retrieval Trigger** | Fixed pipeline          | Agent autonomous decision                    |
+| **Retrieval Strategy** | Single vector retrieval | Hybrid retrieval + dynamic weight adjustment |
+| **Memory Management** | Passive storage         | Active remember/recall/forget                |
+|   **Classification**   | None                    | Auto-classification + importance scoring     |
+|  **Update Mechanism**  | Full rebuild            | Incremental sync                             |
+
+#### Memory Tools
+
+Agents can autonomously manage memory through three core tools:
+
+| Tool | Function | Use Case |
+| :--- | :--- | :--- |
+| `remember` | Proactively store memories | User preferences, important info, context |
+| `recall` | Retrieve memories | Find historical info, recall context |
+| `forget` | Delete/archive memories | Expired info, wrong memories, privacy cleanup |
+
+**Usage Example**:
+
+```
+User: Remember I prefer to communicate in Chinese
+
+Agent: Okay, I'll remember this preference.
+       [Invokes remember tool]
+       ✅ Stored: User preference - Language: Chinese
+
+User: What language preference did I mention?
+
+Agent: [Invokes recall tool]
+       You told me you prefer to communicate in Chinese.
+```
+
+#### Dual-Layer Storage Architecture
 
 ```mermaid
 flowchart TB
-    classDef need fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef config fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef tool fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef use fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+    classDef businessLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef serviceLayer fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef storageLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
 
-    Need[Agent Discovers Need<br/>"I need database capability"]:::need
-    Search[Search Available MCP Servers]:::config
-    Config[configure_mcp<br/>Self-Configure]:::config
-    Load[Dynamically Load New Tools]:::tool
-    Use[Agent Uses New Tools]:::use
+    subgraph Business [Business Layer]
+        MM[MemoryManager<br/>remember/recall/forget]:::businessLayer
+    end
 
-    Need --> Search --> Config --> Load --> Use
+    subgraph Services [Service Layer]
+        RS[RetrievalService<br/>Hybrid Retrieval + RRF]:::serviceLayer
+        CS[ClassificationService<br/>Auto Classification]:::serviceLayer
+        IS[ImportanceScorer<br/>Importance Scoring]:::serviceLayer
+        ES[EmbeddingService<br/>FastEmbed Local]:::serviceLayer
+    end
+
+    subgraph Storage [Dual-Layer Storage]
+        direction TB
+        subgraph Layer1 [Layer 1: Structured Storage]
+            SQLite[(SQLiteStore<br/>Source of Truth · Precise Query)]:::storageLayer
+        end
+        subgraph Layer2 [Layer 2: Vector Storage]
+            Vector[(VectorStore<br/>ChromaDB · Semantic Search)]:::storageLayer
+        end
+        DS[DataSyncManager<br/>Incremental Sync]:::storageLayer
+    end
+
+    MM --> RS
+    MM --> CS
+    MM --> IS
+    
+    RS --> SQLite
+    RS --> Vector
+    RS --> |RRF Fusion| Result[Retrieval Result]
+    
+    CS --> SQLite
+    IS --> SQLite
+    ES --> Vector
+    
+    SQLite <--> DS
+    DS <--> Vector
 ```
 
-**Agent Self-Extension Example**:
+#### Hybrid Retrieval Strategy
+
+FinchBot uses **Weighted RRF (Weighted Reciprocal Rank Fusion)** strategy:
+
+| Advantage | Description |
+| :--- | :--- |
+| **Normalization-Free** | Calculates based on rank position only, no need to understand vector or BM25 score distributions |
+| **Outlier-Resistant** | Insensitive to anomalous results from single retrievers, more stable |
+| **Consensus-First** | Rewards documents recognized by multiple retrievers, not single outliers |
+| **Controllable Weights** | Dynamically adjust keyword/semantic retrieval weights by query type |
+
+**Query Type Adaptive Weights**:
+
+```python
+class QueryType(StrEnum):
+    """Query type determines retrieval weights (keyword weight / semantic weight)"""
+    KEYWORD_ONLY = "keyword_only"      # Pure keyword (1.0/0.0)
+    SEMANTIC_ONLY = "semantic_only"    # Pure semantic (0.0/1.0)
+    FACTUAL = "factual"                # Factual (0.8/0.2)
+    CONCEPTUAL = "conceptual"          # Conceptual (0.2/0.8)
+    COMPLEX = "complex"                # Complex (0.5/0.5)
+    AMBIGUOUS = "ambiguous"            # Ambiguous (0.3/0.7)
+```
+
+**RRF Formula**:
 
 ```
-User: Help me analyze this SQLite database
+RRF(d) = Σ (weight_r / (k + rank_r(d)))
 
-Agent thinks:
-1. Current tool check: No database operation tools
-2. Capability gap: Need SQLite operation capability
-3. Solution: Configure SQLite MCP server
-
-Agent acts:
-1. Call configure_mcp(action="add", server_name="sqlite", ...)
-2. Call refresh_capabilities() to refresh capability description
-3. New tools auto-loaded: query_sqlite, list_tables, ...
-
-Agent uses new capability:
-1. Call list_tables() to view schema
-2. Call query_sqlite("SELECT * FROM users LIMIT 10")
-3. Return to user: Database analysis results...
+Where:
+- d is a document
+- k is a smoothing constant (typically 60)
+- rank_r(d) is the rank of document d in retriever r
+- weight_r is the weight for retriever r
 ```
+
+#### Design Highlights
+
+| Feature | Description |
+| :--- | :--- |
+| **Autonomous Decision** | Agent selects appropriate retrieval weights based on query content |
+| **Dynamic Adjustment** | Factual queries favor keywords, conceptual queries favor semantics |
+| **Iterative Validation** | If results are unsatisfactory, adjust strategy and retry |
+| **Explainability** | Each retrieval decision has clear weight-based justification |
+
+### 4. Behavior Self-Evolution: Dynamic Prompt System
+
+FinchBot's prompt system uses file system + modular assembly design, enabling both agents and users to autonomously modify behavior.
+
+#### Dynamic Prompt Advantages
+
+| Traditional Approach | FinchBot Approach |
+| :--- | :--- |
+| Prompts hardcoded in source | Prompts stored in file system |
+| Changes require redeployment | Changes take effect on next conversation |
+| Users cannot customize | Users can customize by editing files |
+| Agent cannot adjust its behavior | Agent can autonomously optimize prompts |
+
+#### Bootstrap File System
+
+```
+~/.finchbot/
+├── config.json              # Main configuration file
+└── workspace/
+    ├── bootstrap/           # Bootstrap files directory
+    │   ├── SYSTEM.md        # Role definition (identity, duties, constraints)
+    │   ├── MEMORY_GUIDE.md  # Memory usage guide (when to store/retrieve)
+    │   ├── SOUL.md          # Personality settings (tone, style)
+    │   └── AGENT_CONFIG.md  # Agent configuration (model params, behavior)
+    ├── config/              # Configuration directory
+    │   └── mcp.json         # MCP server configuration
+    ├── generated/           # Auto-generated files
+    │   ├── TOOLS.md         # Tool documentation (auto-generated)
+    │   └── CAPABILITIES.md  # Capabilities info (auto-generated)
+    ├── skills/              # Custom skills
+    ├── memory/              # Memory storage
+    └── sessions/            # Session data
+```
+
+**Bootstrap Files Explained**:
+
+| File | Purpose | Example Content |
+| :--- | :--- | :--- |
+| `SYSTEM.md` | Define Agent's identity and duties | "You are an intelligent assistant skilled at..." |
+| `MEMORY_GUIDE.md` | Guide Agent on memory usage | "User preferences should be stored in long-term memory..." |
+| `SOUL.md` | Define Agent's personality | "Your responses should be concise and friendly..." |
+| `AGENT_CONFIG.md` | Agent behavior configuration | Default language, response style, etc. |
+
+#### Prompt Building Flow
+
+```mermaid
+flowchart TD
+    classDef startEnd fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
+    classDef process fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef file fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef output fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+
+    A([Agent Startup]):::startEnd --> B[ContextBuilder<br/>Context Builder]:::process
+    
+    B --> C[Load Bootstrap Files]:::file
+    C --> D[SYSTEM.md]:::file
+    C --> E[MEMORY_GUIDE.md]:::file
+    C --> F[SOUL.md]:::file
+    C --> G[AGENT_CONFIG.md]:::file
+
+    B --> H[Load Always-on Skills]:::process
+    H --> I[SkillsLoader<br/>Skill Loader]:::process
+    
+    B --> J[Generate Capabilities]:::process
+    J --> K[CapabilitiesBuilder<br/>Capability Builder]:::process
+    K --> L[CAPABILITIES.md]:::file
+
+    D & E & F & G --> M[Assemble Prompt]:::process
+    I --> M
+    L --> M
+    
+    M --> N[Inject Runtime Info<br/>Time/Platform/Python Version]:::process
+    N --> O[Complete System Prompt]:::output
+
+    O --> P([Send to LLM]):::startEnd
+```
+
+#### Auto-Generated Capabilities
+
+`CapabilitiesBuilder` automatically generates capability descriptions, letting the Agent "know" its abilities:
+
+```mermaid
+flowchart LR
+    classDef config fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef build fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef output fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+
+    MCP[MCP Config]:::config --> Builder[CapabilitiesBuilder]:::build
+    Tools[Tool List]:::config --> Builder
+    Channels[Channel Config]:::config --> Builder
+
+    Builder --> Cap[CAPABILITIES.md<br/>Capability Info]:::output
+    Builder --> Guide[Extension Guide<br/>How to Add MCP/Skills]:::output
+```
+
+**Generated CAPABILITIES.md Contains**:
+
+1. **MCP Server Status** — Configured servers list, enabled/disabled state
+2. **MCP Tool List** — Available tools grouped by server
+3. **Channel Configuration** — LangBot connection status
+4. **Extension Guide** — How to add new MCP servers and skills
+
+#### Hot Reload Mechanism
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as File System
+    participant C as ContextBuilder
+    participant A as Agent
+
+    U->>F: Edit SYSTEM.md
+    Note over F: File modification time updated
+    
+    U->>A: Send new message
+    A->>C: Build system prompt
+    C->>C: Check file modification time
+    Note over C: File updated detected
+    C->>F: Reload Bootstrap
+    C->>A: Return new prompt
+    A-->>U: Respond with new behavior
+```
+
+**Core Features**:
+
+| Feature | Description |
+| :--- | :--- |
+| **User Customizable** | Edit Bootstrap files to customize Agent behavior |
+| **Agent Adjustable** | Agent can modify its own prompts via `write_file` tool |
+| **Immediate Effect** | Changes auto-load on next conversation, no restart needed |
+| **Smart Caching** | File modification time-based caching, avoids redundant builds |
+
+#### Usage Examples
+
+**User Customizing Agent Personality**:
+
+```bash
+# Edit SOUL.md file
+echo "You are a witty assistant who likes to use metaphors to explain complex concepts." > ~/.finchbot/workspace/bootstrap/SOUL.md
+
+# Takes effect on next conversation
+```
+
+**Agent Self-Optimizing Prompts**:
+
+```
+User: Your responses are too verbose, be more concise
+
+Agent: Okay, I'll adjust my response style.
+       [Calls write_file tool to update SOUL.md]
+       ✅ Updated my behavior configuration, I'll be more concise now.
+```
+
+### 5. Channel System: Multi-Platform Messaging
+
+FinchBot integrates with LangBot for production-grade multi-platform messaging.
+
+#### LangBot Integration
+
+**Why LangBot?**
+- 15k+ GitHub Stars, actively maintained
+- Supports 12+ platforms: QQ, WeChat, WeCom, Feishu, DingTalk, Discord, Telegram, Slack, LINE, KOOK, Satori
+- Built-in WebUI for easy configuration
+- Plugin ecosystem with MCP support
+
+```mermaid
+flowchart LR
+    classDef bus fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef manager fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef channel fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+
+    FinchBot[FinchBot<br/>Agent Core]:::bus <--> LangBot[LangBot<br/>Platform Layer]:::manager
+
+    subgraph Platforms [Supported Platforms]
+        direction LR
+        QQ[QQ]:::channel
+        WeChat[WeChat]:::channel
+        Feishu[Feishu]:::channel
+        DingTalk[DingTalk]:::channel
+        Discord[Discord]:::channel
+        Telegram[Telegram]:::channel
+        Slack[Slack]:::channel
+    end
+
+    LangBot <--> Platforms
+```
+
+```bash
+# Install LangBot
+uvx langbot
+
+# Access WebUI at http://localhost:5300
+# Configure your platforms and connect to FinchBot
+```
+
+For more details, see [LangBot Documentation](https://docs.langbot.app).
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+|      Item      | Requirement             |
+| :-------------: | :---------------------- |
+|       OS       | Windows / Linux / macOS |
+|     Python     | 3.13+                   |
+| Package Manager | uv (Recommended)        |
+
+### Installation
+
+```bash
+# Clone repository (choose one)
+# Gitee (recommended for users in China)
+git clone https://gitee.com/xt765/finchbot.git
+# or GitHub
+git clone https://github.com/xt765/finchbot.git
+
+cd finchbot
+
+# Install dependencies
+uv sync
+```
+
+> **Note**: The embedding model (~95MB) will be automatically downloaded to the local cache when you run the application for the first time.
+
+<details>
+<summary>Development Installation</summary>
+
+```bash
+uv sync --extra dev
+```
+
+This includes: pytest, ruff, basedpyright
+
+</details>
+
+### Basic Usage
+
+```bash
+# Step 1: Configure API keys
+uv run finchbot config
+
+# Step 2: Start chatting
+uv run finchbot chat
+
+# Step 3: Manage sessions
+uv run finchbot sessions
+
+# Step 4: Manage scheduled tasks
+uv run finchbot cron
+```
+
+| Command | Function |
+| :--- | :--- |
+| `finchbot config` | Interactive configuration for LLM providers, API keys |
+| `finchbot chat` | Start or continue an interactive conversation |
+| `finchbot sessions` | Full-screen session manager |
+| `finchbot cron` | Scheduled task manager |
+
+### Docker Deployment
+
+```bash
+# 1. Clone repository
+git clone https://github.com/xt765/finchbot.git
+cd finchbot
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env and add your API keys
+
+# 3. Start service
+docker-compose up -d
+
+# 4. Enter container to use
+docker exec -it finchbot finchbot chat
+```
+
+### Environment Variables
+
+```bash
+# Method 1: Set directly
+export OPENAI_API_KEY="your-api-key"
+uv run finchbot chat
+
+# Method 2: Use .env file
+cp .env.example .env
+# Edit .env and add your API keys
+```
+
+### Log Level
+
+```bash
+finchbot chat          # Default: WARNING and above
+finchbot -v chat       # INFO and above
+finchbot -vv chat      # DEBUG and above (debug mode)
+```
+
+---
+
+## Tech Stack
+
+|       Layer       | Technology        | Version |
+| :----------------: | :---------------- | :------: |
+|   Core Language   | Python            |  3.13+  |
+|  Agent Framework  | LangChain         | 1.2.10+ |
+|  State Management  | LangGraph         |  1.0.8+  |
+|  Data Validation  | Pydantic          |    v2    |
+|   Vector Storage   | ChromaDB          |  0.5.0+  |
+|  Local Embedding  | FastEmbed         |  0.4.0+  |
+|   CLI Framework   | Typer             | 0.23.0+ |
+|     Rich Text     | Rich              | 14.3.0+ |
+|      Logging      | Loguru            |  0.7.3+  |
+
+---
+
+## Extension Guide
+
+### Adding Tools
+
+**Built-in Tools**: Inherit `FinchTool` base class, implement `_run()` method, register with `ToolRegistry`.
+
+**MCP Tools**: Configure MCP servers in `finchbot config`, or edit `~/.finchbot/workspace/config/mcp.json`.
+
+### Adding Skills
+
+Create a `SKILL.md` file in `~/.finchbot/workspace/skills/{skill-name}/`, or let Agent create via `skill-creator`.
+
+### Adding LLM Providers
+
+Add a new Provider class in `providers/factory.py`.
+
+### Multi-Platform Support
+
+Use [LangBot](https://github.com/langbot-app/LangBot) for multi-platform messaging support, see [LangBot Documentation](https://docs.langbot.app).
+
+---
+
+## Documentation
+
+[User Guide](docs/en-US/guide/usage.md) • [API Reference](docs/en-US/api.md) • [Configuration](docs/en-US/config.md) • [Extension Guide](docs/en-US/guide/extension.md) • [Architecture](docs/en-US/architecture.md) • [Deployment](docs/en-US/deployment.md) • [Development](docs/en-US/development.md) • [Contributing](docs/en-US/contributing.md)
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read the [Contributing Guide](docs/en-US/contributing.md) for more information.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 

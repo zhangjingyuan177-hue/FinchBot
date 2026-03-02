@@ -6,10 +6,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from langchain_core.tools import tool
-from loguru import logger
 
 from finchbot.cron.service import CronService
 from finchbot.i18n import t

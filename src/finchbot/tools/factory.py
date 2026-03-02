@@ -76,11 +76,13 @@ class ToolFactory:
         ]
 
         # 记忆工具
-        tools.extend([
-            RememberTool(workspace=str(self.workspace), memory_manager=memory_manager),
-            RecallTool(workspace=str(self.workspace), memory_manager=memory_manager),
-            ForgetTool(workspace=str(self.workspace), memory_manager=memory_manager),
-        ])
+        tools.extend(
+            [
+                RememberTool(workspace=str(self.workspace), memory_manager=memory_manager),
+                RecallTool(workspace=str(self.workspace), memory_manager=memory_manager),
+                ForgetTool(workspace=str(self.workspace), memory_manager=memory_manager),
+            ]
+        )
 
         # 会话工具
         tools.append(SessionTitleTool(workspace=str(self.workspace), session_id=self.session_id))
@@ -100,12 +102,14 @@ class ToolFactory:
             tools.append(web_search_tool)
 
         # 配置工具
-        tools.extend([
-            ConfigureMCPTool(workspace=str(self.workspace)),
-            RefreshCapabilitiesTool(workspace=str(self.workspace)),
-            GetCapabilitiesTool(workspace=str(self.workspace)),
-            GetMCPConfigPathTool(workspace=str(self.workspace)),
-        ])
+        tools.extend(
+            [
+                ConfigureMCPTool(workspace=str(self.workspace)),
+                RefreshCapabilitiesTool(workspace=str(self.workspace)),
+                GetCapabilitiesTool(workspace=str(self.workspace)),
+                GetMCPConfigPathTool(workspace=str(self.workspace)),
+            ]
+        )
 
         # 后台任务工具 (Three-tool pattern)
         tools.extend(BACKGROUND_TOOLS)
@@ -157,8 +161,7 @@ class ToolFactory:
 
         except ImportError:
             logger.warning(
-                "langchain-mcp-adapters not installed. "
-                "Run: pip install langchain-mcp-adapters"
+                "langchain-mcp-adapters not installed. Run: pip install langchain-mcp-adapters"
             )
             return []
         except Exception as e:

@@ -40,134 +40,66 @@
 
 ---
 
-## 摘要
+**FinchBot (雀翎)** 是一个赋予智能体真正自主性的 AI Agent 框架，基于 **LangChain v1.2** 和 **LangGraph v1.0** 构建。全异步架构设计，让智能体具备自主决策、自主扩展、自主进化的能力：
 
-想象这样一个对话：
-
-> 用户："帮我分析这个 SQLite 数据库"
-> 
-> **传统 AI**："抱歉，我没有数据库操作的能力，无法完成这个任务。"
-> 
-> **FinchBot**：*[思考：我还没有数据库工具...]* 
-> "让我配置一下数据库工具。" 
-> *[调用 configure_mcp 添加 SQLite MCP]* 
-> *[新工具已加载：query_sqlite, list_tables...]* 
-> "好了！现在可以分析你的数据库了。数据库包含 3 张表..."
-
-**这就是 FinchBot 的核心差异**：遇到能力边界时，不是"放弃"，而是"想办法"。
-
-基于 **LangChain v1.2** 和 **LangGraph v1.0**，FinchBot 赋予智能体真正的自主性：
-
-| 边界 | 传统 AI | FinchBot |
-|:---|:---|:---|
-| **能力边界** | "我没有这个能力" | 自主配置 MCP，扩展能力 |
-| **时间边界** | 阻塞对话，等待完成 | 后台执行，对话继续 |
-| **规划边界** | "你需要自己设置" | 自主创建定时任务 |
-
-**而且它是安全的**：所有自主操作都在安全边界内 — 文件操作限制在 workspace 目录，危险 Shell 命令被黑名单阻止，只有注册的工具才能执行。
+1. **能力自扩展** — Agent 遇到能力边界时，可使用内置工具配置 MCP、创建技能
+2. **任务自调度** — Agent 可自主设定后台任务、定时执行，不阻塞对话
+3. **记忆自管理** — Agent 可自主记忆、检索、遗忘，Agentic RAG + 加权 RRF 混合检索，智能召回
+4. **行为自进化** — Agent 和用户都可自主修改提示词，持续迭代优化行为
 
 ---
 
-## 1. 为什么选择 FinchBot？
-
-### 能力边界问题
+## 能力边界问题
 
 | 用户请求 | 传统 AI 回应 | FinchBot 回应 |
 |:---|:---|:---|
 | "分析这个数据库" | "我没有数据库工具" | 自主配置 SQLite MCP，然后分析 |
+| "学会做某事" | "等开发者添加功能" | 通过 skill-creator 自主创建技能 |
 | "帮我监控 24 小时" | "我只能在你问的时候响应" | 创建定时任务，自主监控 |
 | "处理这个大文件" | 阻塞对话，用户等待 | 后台执行，用户继续 |
-| "学会做某事" | "等开发者添加功能" | 通过 skill-creator 自主创建技能 |
-
-### 设计哲学
-
-```mermaid
-graph BT
-    classDef roof fill:#ffebee,stroke:#c62828,stroke-width:3px,color:#b71c1c,rx:10,ry:10;
-    classDef pillar fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1,rx:8,ry:8;
-    classDef base fill:#e8f5e9,stroke:#2e7d32,stroke-width:3px,color:#1b5e20,rx:10,ry:10;
-
-    Roof("FinchBot Framework<br/>轻量 • 灵活 • 无限扩展"):::roof
-
-    subgraph Pillars [核心哲学]
-        direction LR
-        P("隐私优先<br/>本地 Embedding<br/>数据不上云"):::pillar
-        M("模块化<br/>工厂模式<br/>组件解耦"):::pillar
-        D("开发者友好<br/>类型安全<br/>文档完善"):::pillar
-        S("极速启动<br/>全异步架构<br/>线程池并发"):::pillar
-        O("开箱即用<br/>零配置启动<br/>自动降级"):::pillar
-    end
-
-    Base("技术基石<br/>LangChain v1.2 • LangGraph v1.0 • Python 3.13"):::base
-
-    Base === P & M & D & S & O
-    P & M & D & S & O === Roof
-```
-
-### 多平台消息支持
-
-FinchBot 通过 [LangBot](https://github.com/langbot-app/LangBot) 平台提供生产级多平台支持：
-
-**支持平台**：QQ、微信（公众号/企业微信）、飞书、钉钉、Discord、Telegram、Slack、LINE、KOOK 等 12+ 平台
-
-```bash
-# 安装 LangBot
-uvx langbot
-
-# 访问 WebUI http://localhost:5300
-# 配置你的平台并连接到 FinchBot
-```
-
-### MCP (Model Context Protocol) 支持
-
-FinchBot 使用官方 `langchain-mcp-adapters` 库集成 MCP，支持 **stdio** 和 **HTTP** 两种传输方式：
-
-```bash
-# 安装依赖
-uv add langchain-mcp-adapters
-
-# 配置 MCP 服务器
-finchbot config
-# 选择 "MCP Configuration" 选项
-```
-
-支持的 MCP 功能：
-- 动态工具发现和注册
-- stdio 和 HTTP 传输
-- 标准化的工具调用接口
-- 支持多种 MCP 服务器
-
-### 命令行界面
-
-FinchBot 提供功能完整的命令行界面，四步快速上手：
-
-```bash
-# 第一步：配置 API 密钥和默认模型
-uv run finchbot config
-
-# 第二步：管理你的会话
-uv run finchbot sessions
-
-# 第三步：开始对话
-uv run finchbot chat
-
-# 第四步：管理定时任务
-uv run finchbot cron
-```
-
-|          特性          | 说明                                                                         |
-| :---------------------: | :--------------------------------------------------------------------------- |
-| **环境变量配置** | 所有配置均可通过环境变量设置（`OPENAI_API_KEY`、`ANTHROPIC_API_KEY` 等） |
-|  **i18n 国际化**  | 内置中英文支持，自动检测系统语言                                             |
-|   **自动降级**   | 网页搜索自动降级：Tavily → Brave → DuckDuckGo                              |
-| **定时任务管理** | 交互式 Cron 管理器，支持键盘导航                                             |
-| **后台任务执行** | 三工具模式异步执行长时间任务                                                 |
+| "记住我的偏好" | "下次对话就忘了" | 持久记忆，Agentic RAG + 加权 RRF 混合检索 |
+| "调整你的行为" | "提示词是固定的" | 动态修改提示词，热加载 |
 
 ---
 
-## 2. 系统架构
+## 系统架构
 
-FinchBot 采用 **LangChain v1.2** + **LangGraph v1.0** 构建，是一个具备持久化记忆、动态工具调度和多平台消息支持的 Agent 系统。
+**核心理念**：FinchBot 智能体不只是响应 — 它们自主执行、自主规划、自主扩展。
+
+### 自主性金字塔
+
+```mermaid
+flowchart TB
+    subgraph L4["扩展层 - 自主扩展能力"]
+        E1["MCP 自动配置"] ~~~ E2["技能创建"] ~~~ E3["动态加载"]
+    end
+
+    subgraph L3["规划层 - 自主创建计划"]
+        P1["定时任务"] ~~~ P2["心跳监控"] ~~~ P3["自动触发"]
+    end
+
+    subgraph L2["执行层 - 自主执行任务"]
+        X1["后台任务"] ~~~ X2["异步处理"] ~~~ X3["非阻塞"]
+    end
+
+    subgraph L1["响应层 - 响应用户请求"]
+        R1["对话系统"] ~~~ R2["工具调用"] ~~~ R3["上下文记忆"]
+    end
+
+    L4 --> L3 --> L2 --> L1
+
+    style L1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    style L2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    style L3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
+    style L4 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17
+```
+
+| 层级 | 能力 | 实现方式 | 用户价值 |
+|:---:|:---|:---|:---|
+| **响应层** | 响应用户请求 | 对话系统 + 工具调用 | 基础交互 |
+| **执行层** | 自主执行任务 | 后台任务系统 | 对话不阻塞 |
+| **规划层** | 自主创建计划 | 定时任务 + 心跳服务 | 自动化执行 |
+| **扩展层** | 自主扩展能力 | MCP 配置 + 技能创建 | 无限扩展 |
 
 ### 整体架构
 
@@ -185,7 +117,7 @@ graph TB
     subgraph Core [Agent 核心层]
         Agent[LangGraph Agent<br/>决策引擎]:::coreLayer
         Context[ContextBuilder<br/>上下文构建]:::coreLayer
-        Tools[ToolRegistry<br/>15 内置工具 + MCP]:::coreLayer
+        Tools[ToolRegistry<br/>24 内置工具 + MCP]:::coreLayer
         Memory[MemoryManager<br/>双层记忆]:::coreLayer
     end
 
@@ -223,244 +155,65 @@ sequenceDiagram
     C->>B: InboundMessage
     B->>F: 获取/创建 Agent
     F->>A: 返回编译后的 Agent
-
+    
     Note over A: 构建上下文
     A->>M: 召回相关记忆
     M-->>A: 返回上下文
-
+    
     A->>L: 发送请求
     L-->>A: 流式响应
-
+    
     alt 需要工具调用
         A->>T: 执行工具
         T-->>A: 返回结果
         A->>L: 继续处理
         L-->>A: 最终响应
     end
-
+    
     A->>M: 存储新记忆
     A->>B: OutboundMessage
     B->>C: 路由到通道
     C->>U: 显示响应
 ```
 
-### 目录结构
+### 安全机制
 
-```
-finchbot/
-├── agent/              # Agent 核心
-│   ├── core.py        # Agent 创建与运行
-│   ├── factory.py     # AgentFactory 组件装配
-│   ├── context.py     # ContextBuilder 提示词组装
-│   ├── capabilities.py # CapabilitiesBuilder 能力构建
-│   └── skills.py      # SkillsLoader Markdown 技能加载
-├── channels/           # 多平台消息（通过 LangBot）
-│   ├── base.py        # BaseChannel 抽象基类
-│   ├── bus.py         # MessageBus 异步路由器
-│   ├── manager.py     # ChannelManager 协调器
-│   ├── schema.py      # 消息模型
-│   └── langbot_integration.py  # LangBot 集成指南
-├── cli/                # 命令行界面
-│   ├── chat_session.py
-│   ├── config_manager.py
-│   ├── providers.py
-│   └── ui.py
-├── config/             # 配置管理
-│   ├── loader.py
-│   ├── schema.py      # 包含 MCPConfig, ChannelsConfig
-│   └── utils.py
-├── constants.py        # 统一常量定义
-├── i18n/               # 国际化
-│   ├── loader.py      # 语言加载器
-│   └── locales/
-├── memory/             # 记忆系统
-│   ├── manager.py
-│   ├── types.py
-│   ├── services/       # 服务层
-│   ├── storage/        # 存储层
-│   └── vector_sync.py
-├── providers/          # LLM 提供商
-│   └── factory.py
-├── sessions/           # 会话管理
-│   ├── metadata.py
-│   ├── selector.py
-│   └── title_generator.py
-├── skills/             # 技能系统
-│   ├── skill-creator/
-│   ├── summarize/
-│   └── weather/
-├── tools/              # 工具系统
-│   ├── base.py
-│   ├── factory.py     # ToolFactory（MCP 工具通过 langchain-mcp-adapters）
-│   ├── registry.py
-│   ├── filesystem.py
-│   ├── memory.py
-│   ├── shell.py
-│   ├── web.py
-│   ├── session_title.py
-│   └── search/
-└── utils/              # 工具函数
-    ├── cache.py
-    ├── logger.py
-    └── model_downloader.py
-```
+**智能体自主 ≠ 智能体乱来。** FinchBot 实现了多重安全机制：
+
+| 安全机制 | 状态 | 作用 |
+|:---|:---:|:---|
+| **路径限制** | ✅ 已实现 | 文件操作限定在 workspace 目录内 |
+| **Shell 命令黑名单** | ✅ 已实现 | 阻止 `rm -rf`、`format`、`shutdown` 等危险命令 |
+| **工具注册机制** | ✅ 已实现 | 只有注册的工具可被调用 |
+
+**理念**：给智能体解决问题的自由，但在明确的边界内。
 
 ---
 
-## 3. 核心组件
+## 核心组件
 
-### 3.1 记忆架构：双层存储 + Agentic RAG
+### 1. 能力自扩展：内置工具 + MCP 配置 + 技能创建
 
-FinchBot 实现了先进的**双层记忆架构**，彻底解决了 LLM 上下文窗口限制和长期记忆遗忘问题。
+FinchBot 提供三层能力扩展机制，让智能体遇到能力边界时可以自主扩展。
 
-#### 为什么是 Agentic RAG？
-
-|      对比维度      | 传统 RAG     | Agentic RAG (FinchBot)      |
-| :----------------: | :----------- | :-------------------------- |
-| **检索触发** | 固定流程     | Agent 自主决策              |
-| **检索策略** | 单一向量检索 | 混合检索 + 权重动态调整     |
-| **记忆管理** | 被动存储     | 主动 remember/recall/forget |
-| **分类能力** | 无           | 自动分类 + 重要性评分       |
-| **更新机制** | 全量重建     | 增量同步                    |
-
-#### 双层存储架构
+#### 三层扩展机制
 
 ```mermaid
-flowchart TB
-    classDef businessLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef serviceLayer fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef storageLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+flowchart LR
+    classDef layer1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef layer2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef layer3 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
 
-    MM[MemoryManager<br/>remember/recall/forget]:::businessLayer
-
-    RS[RetrievalService<br/>混合检索 + RRF]:::serviceLayer
-    CS[ClassificationService<br/>自动分类]:::serviceLayer
-    IS[ImportanceScorer<br/>重要性评分]:::serviceLayer
-    ES[EmbeddingService<br/>FastEmbed 本地]:::serviceLayer
-
-    SQLite[(SQLiteStore<br/>真相源<br/>精确查询)]:::storageLayer
-    Vector[(VectorStore<br/>ChromaDB<br/>语义检索)]:::storageLayer
-    DS[DataSyncManager<br/>增量同步]:::storageLayer
-
-    MM --> RS & CS & IS
-    RS --> SQLite & Vector
-    CS --> SQLite
-    IS --> SQLite
-    ES --> Vector
-
-    SQLite <--> DS <--> Vector
+    L1[第一层<br/>内置工具<br/>开箱即用]:::layer1 --> L2[第二层<br/>MCP 配置<br/>Agent 自主配置]:::layer2 --> L3[第三层<br/>技能创建<br/>Agent 自主创建]:::layer3
 ```
 
-#### 混合检索策略
+| 层级 | 方式 | 自主性 | 说明 |
+|:---:|:---|:---:|:---|
+| 第一层 | 内置工具 | 开箱即用 | 24 个内置工具，无需配置即可使用 |
+| 第二层 | MCP 配置 | Agent 自主配置 | 通过 `configure_mcp` 动态添加外部能力 |
+| 第三层 | 技能创建 | Agent 自主创建 | 通过 `skill-creator` 创建新技能 |
 
-FinchBot 采用**加权 RRF (Weighted Reciprocal Rank Fusion)** 策略：
-
-```python
-class QueryType(StrEnum):
-    """查询类型，决定检索权重"""
-    KEYWORD_ONLY = "keyword_only"      # 纯关键词 (1.0/0.0)
-    SEMANTIC_ONLY = "semantic_only"    # 纯语义 (0.0/1.0)
-    FACTUAL = "factual"                # 事实型 (0.8/0.2)
-    CONCEPTUAL = "conceptual"          # 概念型 (0.2/0.8)
-    COMPLEX = "complex"                # 复杂型 (0.5/0.5)
-    AMBIGUOUS = "ambiguous"            # 歧义型 (0.3/0.7)
-```
-
-### 3.2 动态提示词系统：用户可编辑的 Agent 大脑
-
-FinchBot 的提示词系统采用**文件系统 + 模块化组装**的设计。
-
-#### Bootstrap 文件系统
-
-```
-~/.finchbot/
-├── config.json              # 主配置文件
-└── workspace/
-    ├── bootstrap/           # Bootstrap 文件目录
-    │   ├── SYSTEM.md        # 角色设定
-    │   ├── MEMORY_GUIDE.md  # 记忆使用指南
-    │   ├── SOUL.md          # 灵魂设定（性格特征）
-    │   └── AGENT_CONFIG.md  # Agent 配置
-    ├── config/              # 配置目录
-    │   └── mcp.json         # MCP 服务器配置
-    ├── generated/           # 自动生成文件
-    │   ├── TOOLS.md         # 工具文档
-    │   └── CAPABILITIES.md  # 能力信息
-    ├── skills/              # 自定义技能
-    ├── memory/              # 记忆存储
-    └── sessions/            # 会话数据
-```
-
-#### 提示词加载流程
-
-```mermaid
-flowchart TD
-    classDef startEnd fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
-    classDef process fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef file fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef output fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-
-    A([Agent 启动]):::startEnd --> B[加载 Bootstrap 文件]:::process
-
-    B --> C[bootstrap/SYSTEM.md]:::file
-    B --> D[bootstrap/MEMORY_GUIDE.md]:::file
-    B --> E[bootstrap/SOUL.md]:::file
-    B --> F[bootstrap/AGENT_CONFIG.md]:::file
-
-    C --> G[组装提示词]:::process
-    D --> G
-    E --> G
-    F --> G
-
-    G --> H[加载常驻技能]:::process
-    H --> I[构建技能摘要 XML]:::process
-    I --> J[生成工具文档 TOOLS.md]:::process
-    J --> K[生成能力文档 CAPABILITIES.md]:::process
-    K --> L[注入运行时信息]:::process
-    L --> M[完整系统提示]:::output
-
-    M --> N([发送给 LLM]):::startEnd
-```
-
-### 3.3 工具系统：代码级能力扩展
-
-工具是 Agent 与外部世界交互的桥梁。FinchBot 提供了 15 个内置工具，并支持轻松扩展。
-
-#### 工具系统架构
-
-```mermaid
-flowchart TB
-    classDef registry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef builtin fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef mcp fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#7b1fa2;
-    classDef agent fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-
-    TR[ToolRegistry<br/>全局注册表]:::registry
-    Lock[单锁模式<br/>线程安全单例]:::registry
-
-    subgraph BuiltIn [内置工具 - 15个]
-        File[文件操作<br/>read/write/edit/list]:::builtin
-        Web[网络<br/>search/extract]:::builtin
-        Memory[记忆<br/>remember/recall/forget]:::builtin
-        System[系统<br/>exec/session_title]:::builtin
-        Config[配置<br/>configure_mcp/refresh_capabilities<br/>get_capabilities/get_mcp_config_path]:::builtin
-    end
-
-    subgraph MCP [MCP 工具 - langchain-mcp-adapters]
-        MCPConfig[MCPServerConfig<br/>stdio/HTTP 配置]:::mcp
-        MCPClient[MultiServerMCPClient<br/>官方客户端]:::mcp
-        MCPTools[MCP Tools<br/>外部工具]:::mcp
-    end
-
-    Agent[Agent 调用]:::agent
-
-    TR --> Lock
-    Lock --> BuiltIn
-    MCPConfig --> MCPClient --> MCPTools --> TR
-    TR --> Agent
-```
-
-#### 内置工具一览
+#### 内置工具
 
 |        类别        | 工具              | 功能                        |
 | :----------------: | :---------------- | :-------------------------- |
@@ -475,12 +228,23 @@ flowchart TB
 |                    | `forget`        | 删除/归档记忆               |
 | **系统控制** | `exec`          | 安全执行 Shell 命令         |
 |                    | `session_title` | 管理会话标题                |
-| **配置管理** | `configure_mcp` | 动态配置 MCP 服务器（支持启用/禁用） |
+| **配置管理** | `configure_mcp` | 动态配置 MCP 服务器（支持启用/禁用/添加/更新/删除/列出） |
 |                    | `refresh_capabilities` | 刷新能力描述文件   |
 |                    | `get_capabilities` | 获取当前能力描述        |
 |                    | `get_mcp_config_path` | 获取 MCP 配置路径    |
+| **后台任务** | `start_background_task` | 启动后台任务       |
+|                    | `check_task_status` | 检查任务状态         |
+|                    | `get_task_result` | 获取任务结果           |
+|                    | `cancel_task`   | 取消任务                    |
+| **定时任务** | `create_cron`   | 创建定时任务                |
+|                    | `list_crons`    | 列出所有定时任务            |
+|                    | `delete_cron`   | 删除定时任务                |
+|                    | `toggle_cron`   | 启用/禁用定时任务           |
+|                    | `run_cron_now`  | 立即执行定时任务            |
 
-#### 网页搜索：三引擎降级设计
+##### 网页搜索
+
+`web_search` 工具采用三引擎降级设计，确保始终可用：
 
 ```mermaid
 flowchart TD
@@ -489,13 +253,13 @@ flowchart TD
     classDef fallback fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
 
     Start[网页搜索请求]:::check
-
+    
     Check1{TAVILY_API_KEY<br/>已设置?}:::check
     Tavily[Tavily<br/>质量最佳<br/>AI 优化]:::engine
-
+    
     Check2{BRAVE_API_KEY<br/>已设置?}:::check
     Brave[Brave Search<br/>隐私友好<br/>免费额度大]:::engine
-
+        
     DDG[DuckDuckGo<br/>零配置<br/>始终可用]:::fallback
 
     Start --> Check1
@@ -511,19 +275,19 @@ flowchart TD
 |   2   | **Brave Search** |  需要  | 免费额度大，隐私友好             |
 |   3   |  **DuckDuckGo**  |  无需  | 始终可用，零配置                 |
 
-**工作原理**：
+##### 会话管理
 
-1. 如果设置了 `TAVILY_API_KEY` → 使用 Tavily（质量最佳）
-2. 否则如果设置了 `BRAVE_API_KEY` → 使用 Brave Search
-3. 否则 → 使用 DuckDuckGo（无需 API Key，始终可用）
+`session_title` 工具让会话命名变得智能：
 
-这个设计确保**即使没有任何 API Key 配置，网页搜索也能开箱即用**！
+|       操作方式       | 说明                                   | 示例                   |
+| :------------------: | :------------------------------------- | :--------------------- |
+|  **自动生成**  | 对话 2-3 轮后，AI 自动根据内容生成标题 | "Python 异步编程讨论"  |
+| **Agent 修改** | 告诉 Agent "把会话标题改成 XXX"        | Agent 调用工具自动修改 |
+| **手动重命名** | 在会话管理器中按 `r` 键重命名        | 用户手动输入新标题     |
 
-#### Agent 自主配置：动态 MCP 管理
+#### MCP 配置
 
-FinchBot 的 Agent 可以通过 `configure_mcp` 工具自主管理 MCP 服务器，实现动态能力扩展，无需手动编辑配置文件。
-
-**支持的操作**：
+智能体可通过 `configure_mcp` 工具自主管理 MCP 服务器：
 
 | 操作 | 说明 |
 | :--- | :--- |
@@ -534,9 +298,7 @@ FinchBot 的 Agent 可以通过 `configure_mcp` 工具自主管理 MCP 服务器
 | `disable` | 暂时禁用 MCP 服务器 |
 | `list` | 列出所有已配置的服务器 |
 
-**动态提示词更新**：
-
-当 MCP 配置变更时，Agent 可通过 `refresh_capabilities` 刷新能力描述，确保系统提示词始终反映当前能力。
+**动态能力更新**：
 
 ```mermaid
 flowchart LR
@@ -547,15 +309,9 @@ flowchart LR
     MCP[MCP 配置<br/>configure_mcp]:::config --> Refresh[refresh_capabilities]:::system --> Builder[CapabilitiesBuilder<br/>重新生成]:::system --> Write[CAPABILITIES.md]:::prompt --> Load[下次对话<br/>自动加载]:::prompt
 ```
 
-### 3.4 技能系统：用 Markdown 定义 Agent 能力
+#### 技能创建
 
-技能是 FinchBot 的独特创新——**用 Markdown 文件定义 Agent 的能力边界**。
-
-#### 最大特色：Agent 自动创建技能
-
-FinchBot 内置了 **skill-creator** 技能，这是开箱即用理念的极致体现：
-
-> **只需告诉 Agent 你想要什么技能，Agent 就会自动创建好！**
+FinchBot 内置 **skill-creator** 技能，智能体可自主创建新技能：
 
 ```
 用户: 帮我创建一个翻译技能，可以把中文翻译成英文
@@ -582,7 +338,7 @@ skills/
     └── SKILL.md
 ```
 
-#### 核心设计亮点
+#### 设计亮点
 
 |           特性           | 说明                              |
 | :----------------------: | :-------------------------------- |
@@ -592,9 +348,468 @@ skills/
 |  **缓存失效检测**  | 基于文件修改时间，智能缓存        |
 |   **渐进式加载**   | 常驻技能优先，按需加载其他        |
 
-### 3.5 通道系统：多平台消息支持
+### 2. 任务自调度：后台任务 + 定时任务 + 心跳服务
 
-FinchBot 通过 [LangBot](https://github.com/langbot-app/LangBot) 平台提供生产级多平台消息支持。
+FinchBot 实现了三层任务调度机制，让智能体能够自主执行、规划和监控任务。
+
+#### 三层调度机制
+
+```mermaid
+flowchart TB
+    classDef layer1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef layer2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef layer3 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
+
+    subgraph L3["监控层 - 心跳服务"]
+        H1[自主唤醒] ~~~ H2[定期检查] ~~~ H3[主动通知]
+    end
+
+    subgraph L2["规划层 - 定时任务"]
+        C1[Cron 调度] ~~~ C2[周期执行] ~~~ C3[自动重试]
+    end
+
+    subgraph L1["执行层 - 后台任务"]
+        B1[异步执行] ~~~ B2[非阻塞] ~~~ B3[结果获取]
+    end
+
+    L3 --> L2 --> L1
+
+    style L1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
+    style L2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
+    style L3 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17
+```
+
+| 层级 | 功能 | 特点 | 使用场景 |
+|:---:|:---|:---|:---|
+| 执行层 | 后台任务 | 异步执行，不阻塞对话 | 长时间运行的任务 |
+| 规划层 | 定时任务 | 周期执行，自动化运行 | 定期提醒、定时报告 |
+| 监控层 | 心跳服务 | 主动检查，自主唤醒 | 条件监控、状态追踪 |
+
+#### 后台任务
+
+FinchBot 实现了**四工具模式**用于异步任务执行：
+
+| 工具 | 功能 | 智能体自主性 |
+| :--- | :--- | :--- |
+| `start_background_task` | 启动后台任务 | 智能体自主判断是否需要后台执行 |
+| `check_task_status` | 检查任务状态 | 智能体自主决定何时检查 |
+| `get_task_result` | 获取任务结果 | 智能体自主决定何时获取结果 |
+| `cancel_task` | 取消任务 | 智能体自主决定是否取消 |
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant A as 智能体
+    participant BG as 后台任务系统
+    participant S as 子智能体
+
+    U->>A: 执行长任务
+    A->>BG: start_background_task
+    BG->>S: 创建独立智能体
+    BG-->>A: 返回 job_id
+    A-->>U: 任务已启动 (ID: xxx)
+    
+    Note over U,A: 用户继续对话...
+    
+    U->>A: 其他问题
+    A-->>U: 正常回复
+    
+    U->>A: 任务进度？
+    A->>BG: check_task_status
+    BG-->>A: running
+    A-->>U: 仍在执行...
+    
+    S-->>BG: 任务完成
+    U->>A: 获取结果
+    A->>BG: get_task_result
+    BG-->>A: 返回结果
+    A-->>U: 展示任务结果
+```
+
+#### 定时任务
+
+FinchBot 的定时任务系统让智能体能够自主创建和管理周期性任务：
+
+```mermaid
+flowchart LR
+    classDef agent fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef system fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef action fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+
+    Agent[智能体自主创建任务]:::agent --> Scheduler[Cron 调度器]:::system
+    Scheduler --> |触发| Execute[执行任务]:::action
+    Execute --> |完成| Notify[通知用户]:::action
+    Execute --> |失败| Retry[自动重试]:::action
+```
+
+**核心特性**：
+
+| 特性 | 说明 |
+| :--- | :--- |
+| **Cron 表达式** | 支持标准 Cron 语法，灵活配置执行时间 |
+| **持久化存储** | 任务配置保存在 SQLite，重启后自动恢复 |
+| **自动重试** | 任务失败时自动重试，确保可靠性 |
+| **状态追踪** | 记录每次执行结果，便于审计和调试 |
+
+**常用 Cron 表达式**：
+
+| 表达式 | 说明 |
+| :--- | :--- |
+| `0 9 * * *` | 每天上午 9:00 |
+| `0 */2 * * *` | 每 2 小时 |
+| `30 18 * * 1-5` | 工作日下午 6:30 |
+| `0 0 1 * *` | 每月 1 日午夜 |
+| `0 0 * * 0` | 每周日午夜 |
+
+**使用示例**：
+
+```
+用户: 每天早上 9 点提醒我查看邮件
+
+Agent: 好的，我来创建一个定时任务...
+       [调用 create_cron 工具]
+       ✅ 已创建定时任务
+       - 触发时间: 每天 09:00
+       - 任务内容: 提醒查看邮件
+       - 下次执行: 明天 09:00
+```
+
+#### 心跳服务
+
+心跳服务让 Agent 能够定期"醒来"检查是否有待处理任务，实现真正的自主运行。
+
+```mermaid
+flowchart LR
+    classDef trigger fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef decision fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef action fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+
+    Timer[定时器<br/>默认 30 分钟]:::trigger --> |唤醒| Check[检查 HEARTBEAT.md]:::decision
+    Check --> |有任务| LLM[LLM 决策]:::decision
+    LLM --> |run| Execute[执行任务]:::action
+    LLM --> |skip| Wait[继续等待]:::trigger
+```
+
+**核心特性**：
+
+| 特性 | 说明 |
+| :--- | :--- |
+| **自主唤醒** | 无需用户触发，Agent 定期主动检查 |
+| **LLM 决策** | 通过 LLM 智能判断是否需要执行任务 |
+| **灵活配置** | 可自定义检查间隔（默认 30 分钟） |
+| **会话绑定** | 随 chat 会话启动和停止 |
+
+**工作流程**：
+
+1. Agent 在对话时自动启动心跳服务
+2. 每隔指定时间检查 `HEARTBEAT.md` 文件
+3. 如果有内容，通过 LLM 决定是否执行
+4. LLM 返回 `run` 则执行任务，返回 `skip` 则等待下次检查
+
+**使用示例**：
+
+```
+用户: 帮我监控股票价格，跌破 100 元时通知我
+
+Agent: 好的，我会在 HEARTBEAT.md 中记录这个任务...
+       心跳服务会定期检查股票价格
+       当条件满足时会主动通知你
+```
+
+### 3. 记忆自管理：Agentic RAG + 加权 RRF 混合检索
+
+FinchBot 实现了先进的双层记忆架构，让智能体能够自主记忆、检索和遗忘。
+
+#### Agentic RAG 优势
+
+|      对比维度      | 传统 RAG     | Agentic RAG (FinchBot)      |
+| :----------------: | :----------- | :-------------------------- |
+| **检索触发** | 固定流程     | Agent 自主决策              |
+| **检索策略** | 单一向量检索 | 混合检索 + 权重动态调整     |
+| **记忆管理** | 被动存储     | 主动 remember/recall/forget |
+| **分类能力** | 无           | 自动分类 + 重要性评分       |
+| **更新机制** | 全量重建     | 增量同步                    |
+
+#### 记忆工具
+
+智能体可通过三个核心工具自主管理记忆：
+
+| 工具 | 功能 | 使用场景 |
+| :--- | :--- | :--- |
+| `remember` | 主动存储记忆 | 用户偏好、重要信息、上下文 |
+| `recall` | 检索记忆 | 查找历史信息、回忆上下文 |
+| `forget` | 删除/归档记忆 | 过期信息、错误记忆、隐私清理 |
+
+**使用示例**：
+
+```
+用户: 记住我喜欢用中文交流
+
+Agent: 好的，我会记住这个偏好。
+       [调用 remember 工具]
+       ✅ 已存储：用户偏好 - 语言：中文
+
+用户: 我之前说过什么语言偏好？
+
+Agent: [调用 recall 工具]
+       你之前告诉我喜欢用中文交流。
+```
+
+#### 双层存储架构
+
+```mermaid
+flowchart TB
+    classDef businessLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef serviceLayer fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef storageLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+
+    subgraph Business [业务层]
+        MM[MemoryManager<br/>remember/recall/forget]:::businessLayer
+    end
+
+    subgraph Services [服务层]
+        RS[RetrievalService<br/>混合检索 + RRF 融合]:::serviceLayer
+        CS[ClassificationService<br/>自动分类]:::serviceLayer
+        IS[ImportanceScorer<br/>重要性评分]:::serviceLayer
+        ES[EmbeddingService<br/>FastEmbed 本地嵌入]:::serviceLayer
+    end
+
+    subgraph Storage [双层存储]
+        direction TB
+        subgraph Layer1 [第一层：结构化存储]
+            SQLite[(SQLiteStore<br/>真相源 · 精确查询)]:::storageLayer
+        end
+        subgraph Layer2 [第二层：向量存储]
+            Vector[(VectorStore<br/>ChromaDB · 语义检索)]:::storageLayer
+        end
+        DS[DataSyncManager<br/>增量同步]:::storageLayer
+    end
+
+    MM --> RS
+    MM --> CS
+    MM --> IS
+    
+    RS --> SQLite
+    RS --> Vector
+    RS --> |RRF 融合| Result[检索结果]
+    
+    CS --> SQLite
+    IS --> SQLite
+    ES --> Vector
+    
+    SQLite <--> DS
+    DS <--> Vector
+```
+
+#### 混合检索策略
+
+FinchBot 采用**加权 RRF (Weighted Reciprocal Rank Fusion)** 策略：
+
+| 优势 | 说明 |
+| :--- | :--- |
+| **无需归一化** | 仅基于排名位置计算，无需了解向量或 BM25 分数分布 |
+| **抗异常值** | 对单个检索器的异常结果不敏感，更稳定 |
+| **共识优先** | 奖励多个检索器都认可的文档，而非单一异常 |
+| **权重可控** | 可根据查询类型动态调整关键词/语义检索权重 |
+
+**查询类型自适应权重**：
+
+```python
+class QueryType(StrEnum):
+    """查询类型，决定检索权重（关键词权重 / 语义权重）"""
+    KEYWORD_ONLY = "keyword_only"      # 纯关键词 (1.0/0.0)
+    SEMANTIC_ONLY = "semantic_only"    # 纯语义 (0.0/1.0)
+    FACTUAL = "factual"                # 事实型 (0.8/0.2)
+    CONCEPTUAL = "conceptual"          # 概念型 (0.2/0.8)
+    COMPLEX = "complex"                # 复杂型 (0.5/0.5)
+    AMBIGUOUS = "ambiguous"            # 歧义型 (0.3/0.7)
+```
+
+**RRF 公式**：
+
+```
+RRF(d) = Σ (weight_r / (k + rank_r(d)))
+
+其中：
+- d 是文档
+- k 是平滑常数（通常为 60）
+- rank_r(d) 是文档 d 在检索器 r 中的排名
+- weight_r 是检索器 r 的权重
+```
+
+#### 设计亮点
+
+| 特性 | 说明 |
+| :--- | :--- |
+| **自主决策** | Agent 根据查询内容选择合适的检索权重 |
+| **动态调整** | 事实型查询偏向关键词，概念型查询偏向语义 |
+| **迭代验证** | 如果结果不满意，可以调整策略重试 |
+| **可解释性** | 每个检索决策都有明确的权重依据 |
+
+### 4. 行为自进化：动态提示词系统
+
+FinchBot 的提示词系统采用文件系统 + 模块化组装的设计，让智能体和用户都能自主修改行为。
+
+#### 动态提示词优势
+
+| 传统方式 | FinchBot 方式 |
+| :--- | :--- |
+| 提示词硬编码在代码中 | 提示词存储在文件系统中 |
+| 修改需要重新部署 | 修改后下次对话自动生效 |
+| 用户无法自定义 | 用户可通过编辑文件自定义 |
+| Agent 无法调整自身行为 | Agent 可自主优化提示词 |
+
+#### Bootstrap 文件系统
+
+```
+~/.finchbot/
+├── config.json              # 主配置文件
+└── workspace/
+    ├── bootstrap/           # Bootstrap 文件目录
+    │   ├── SYSTEM.md        # 角色设定（身份、职责、约束）
+    │   ├── MEMORY_GUIDE.md  # 记忆使用指南（何时存储/检索）
+    │   ├── SOUL.md          # 灵魂设定（性格、语气、风格）
+    │   └── AGENT_CONFIG.md  # Agent 配置（模型参数、行为选项）
+    ├── config/              # 配置目录
+    │   └── mcp.json         # MCP 服务器配置
+    ├── generated/           # 自动生成文件
+    │   ├── TOOLS.md         # 工具文档（自动生成）
+    │   └── CAPABILITIES.md  # 能力信息（自动生成）
+    ├── skills/              # 自定义技能
+    ├── memory/              # 记忆存储
+    └── sessions/            # 会话数据
+```
+
+**Bootstrap 文件说明**：
+
+| 文件 | 作用 | 示例内容 |
+| :--- | :--- | :--- |
+| `SYSTEM.md` | 定义 Agent 的身份和职责 | "你是一个智能助手，擅长..." |
+| `MEMORY_GUIDE.md` | 指导 Agent 如何使用记忆 | "用户偏好应存储在长期记忆中..." |
+| `SOUL.md` | 定义 Agent 的性格特征 | "你的回复应该简洁、友好..." |
+| `AGENT_CONFIG.md` | Agent 行为配置 | 默认语言、响应风格等 |
+
+#### 提示词构建流程
+
+```mermaid
+flowchart TD
+    classDef startEnd fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
+    classDef process fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef file fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef output fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+
+    A([Agent 启动]):::startEnd --> B[ContextBuilder<br/>上下文构建器]:::process
+    
+    B --> C[加载 Bootstrap 文件]:::file
+    C --> D[SYSTEM.md]:::file
+    C --> E[MEMORY_GUIDE.md]:::file
+    C --> F[SOUL.md]:::file
+    C --> G[AGENT_CONFIG.md]:::file
+
+    B --> H[加载常驻技能]:::process
+    H --> I[SkillsLoader<br/>技能加载器]:::process
+    
+    B --> J[生成能力信息]:::process
+    J --> K[CapabilitiesBuilder<br/>能力构建器]:::process
+    K --> L[CAPABILITIES.md]:::file
+
+    D & E & F & G --> M[组装提示词]:::process
+    I --> M
+    L --> M
+    
+    M --> N[注入运行时信息<br/>时间/平台/Python版本]:::process
+    N --> O[完整系统提示]:::output
+
+    O --> P([发送给 LLM]):::startEnd
+```
+
+#### 能力信息自动生成
+
+`CapabilitiesBuilder` 会自动生成能力说明，让 Agent "知道"自己的能力：
+
+```mermaid
+flowchart LR
+    classDef config fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef build fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef output fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+
+    MCP[MCP 配置]:::config --> Builder[CapabilitiesBuilder]:::build
+    Tools[工具列表]:::config --> Builder
+    Channels[通道配置]:::config --> Builder
+
+    Builder --> Cap[CAPABILITIES.md<br/>能力说明]:::output
+    Builder --> Guide[扩展指南<br/>如何添加 MCP/技能]:::output
+```
+
+**生成的 CAPABILITIES.md 包含**：
+
+1. **MCP 服务器状态** — 已配置的服务器列表、启用/禁用状态
+2. **MCP 工具列表** — 按服务器分组的可用工具
+3. **通道配置** — LangBot 连接状态
+4. **扩展指南** — 如何添加新的 MCP 服务器和技能
+
+#### 热加载机制
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant F as 文件系统
+    participant C as ContextBuilder
+    participant A as Agent
+
+    U->>F: 编辑 SYSTEM.md
+    Note over F: 文件修改时间更新
+    
+    U->>A: 发送新消息
+    A->>C: 构建系统提示
+    C->>C: 检查文件修改时间
+    Note over C: 发现文件已更新
+    C->>F: 重新加载 Bootstrap
+    C->>A: 返回新提示词
+    A-->>U: 使用新行为响应
+```
+
+**核心特性**：
+
+| 特性 | 说明 |
+| :--- | :--- |
+| **用户可定制** | 编辑 Bootstrap 文件即可自定义 Agent 行为 |
+| **Agent 可调整** | Agent 可通过 `write_file` 工具修改自身提示词 |
+| **立即生效** | 修改后下次对话自动加载，无需重启服务 |
+| **智能缓存** | 基于文件修改时间的缓存机制，避免重复构建 |
+
+#### 使用示例
+
+**用户自定义 Agent 性格**：
+
+```bash
+# 编辑 SOUL.md 文件
+echo "你是一个幽默风趣的助手，喜欢用比喻来解释复杂概念。" > ~/.finchbot/workspace/bootstrap/SOUL.md
+
+# 下次对话立即生效
+```
+
+**Agent 自主优化提示词**：
+
+```
+用户: 你回复太啰嗦了，简洁一点
+
+Agent: 好的，我会调整我的回复风格。
+       [调用 write_file 工具更新 SOUL.md]
+       ✅ 已更新我的行为配置，以后会更简洁。
+```
+
+### 5. 通道系统：多平台消息支持
+
+FinchBot 集成 LangBot 实现生产级多平台消息支持。
+
+#### LangBot 集成
+
+**为什么选择 LangBot？**
+- 15k+ GitHub Stars，活跃维护
+- 支持 12+ 平台：QQ、微信、企业微信、飞书、钉钉、Discord、Telegram、Slack、LINE、KOOK、Satori
+- 内置 WebUI，可视化配置
+- 插件生态，支持 MCP 等扩展
 
 ```mermaid
 flowchart LR
@@ -602,76 +817,37 @@ flowchart LR
     classDef manager fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
     classDef channel fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
 
-    FinchBot[FinchBot<br/>Agent 核心]:::bus
-    LangBot[LangBot<br/>平台层]:::manager
+    FinchBot[FinchBot<br/>Agent 核心]:::bus <--> LangBot[LangBot<br/>平台层]:::manager
 
-    QQ[QQ]:::channel
-    WeChat[微信]:::channel
-    Feishu[飞书]:::channel
-    DingTalk[钉钉]:::channel
-    Discord[Discord]:::channel
-    Telegram[Telegram]:::channel
-    Slack[Slack]:::channel
+    subgraph Platforms [支持平台]
+        direction LR
+        QQ[QQ]:::channel
+        WeChat[微信]:::channel
+        Feishu[飞书]:::channel
+        DingTalk[钉钉]:::channel
+        Discord[Discord]:::channel
+        Telegram[Telegram]:::channel
+        Slack[Slack]:::channel
+    end
 
-    FinchBot <--> LangBot
-    LangBot <--> QQ & WeChat & Feishu & DingTalk & Discord & Telegram & Slack
+    LangBot <--> Platforms
 ```
 
-**LangBot 特点**：
-- **15k+ GitHub Stars**，活跃维护
-- **支持 12+ 平台**：QQ、微信、企业微信、飞书、钉钉、Discord、Telegram、Slack、LINE、KOOK、Satori
-- **内置 WebUI**：可视化配置各平台
-- **插件生态**：支持 MCP 等扩展
+#### 快速开始
 
-### 3.6 LangChain 1.2 架构实践
+```bash
+# 安装 LangBot
+uvx langbot
 
-FinchBot 基于 **LangChain v1.2** 和 **LangGraph v1.0** 构建，采用最新的 Agent 架构。
-
-```python
-from langchain.agents import create_agent
-from langgraph.checkpoint.sqlite import SqliteSaver
-
-def create_finch_agent(
-    model: BaseChatModel,
-    workspace: Path,
-    tools: Sequence[BaseTool] | None = None,
-    use_persistent: bool = True,
-) -> tuple[CompiledStateGraph, SqliteSaver | MemorySaver]:
-
-    # 1. 初始化检查点（持久化状态）
-    if use_persistent:
-        checkpointer = SqliteSaver.from_conn_string(str(db_path))
-    else:
-        checkpointer = MemorySaver()
-
-    # 2. 构建系统提示
-    system_prompt = build_system_prompt(workspace)
-
-    # 3. 创建 Agent（使用 LangChain 官方 API）
-    agent = create_agent(
-        model=model,
-        tools=list(tools) if tools else None,
-        system_prompt=system_prompt,
-        checkpointer=checkpointer,
-    )
-
-    return agent, checkpointer
+# 访问 WebUI http://localhost:5300
+# 配置你的平台并连接到 FinchBot
 ```
 
-#### 支持的 LLM 提供商
-
-|  提供商  | 模型                        | 特点             |
-| :-------: | :-------------------------- | :--------------- |
-|  OpenAI  | GPT-5, GPT-5.2, O3-mini     | 综合能力最强     |
-| Anthropic | Claude Sonnet 4.5, Opus 4.6 | 安全性高，长文本 |
-| DeepSeek | DeepSeek Chat, Reasoner     | 国产，性价比高   |
-|  Gemini  | Gemini 2.5 Flash            | Google 最新      |
-|   Groq   | Llama 4 Scout/Maverick      | 极速推理         |
-| Moonshot | Kimi K1.5/K2.5              | 长文本，国产     |
+更多详情请参阅 [LangBot 文档](https://docs.langbot.app)。
 
 ---
 
-## 4. 快速开始
+## 快速开始
 
 ### 前置要求
 
@@ -681,14 +857,14 @@ def create_finch_agent(
 |  Python  | 3.13+                   |
 | 包管理器 | uv (推荐)               |
 
-### 安装步骤
+### 安装
 
 ```bash
 # 克隆仓库（二选一）
 # Gitee（国内推荐）
-git clone https://gitee.com/xt765/FinchBot.git
+git clone https://gitee.com/xt765/finchbot.git
 # 或 GitHub
-git clone https://github.com/xt765/FinchBot.git
+git clone https://github.com/xt765/finchbot.git
 
 cd finchbot
 
@@ -696,276 +872,135 @@ cd finchbot
 uv sync
 ```
 
-> **注意**：嵌入模型（约 95MB）会在首次运行时（如运行 `finchbot chat`）自动下载到本地。无需手动干预。
+> **注意**：嵌入模型（约 95MB）会在首次运行时自动下载到本地。
 
-### 最佳实践：三步上手
+<details>
+<summary>开发环境安装</summary>
 
 ```bash
-# 第一步：配置 API 密钥和默认模型
-uv run finchbot config
-
-# 第二步：管理你的会话
-uv run finchbot sessions
-
-# 第三步：开始对话
-uv run finchbot chat
+uv sync --extra dev
 ```
 
-就这么简单！这三个命令覆盖了完整的工作流程：
+包含：pytest、ruff、basedpyright
 
-- `finchbot config` — 交互式配置 LLM 提供商、API 密钥和设置
-- `finchbot sessions` — 全屏会话管理器，创建、重命名、删除会话
-- `finchbot chat` — 开始或继续交互式对话
+</details>
+
+### 基本使用
+
+```bash
+# 第一步：配置 API 密钥
+uv run finchbot config
+
+# 第二步：开始对话
+uv run finchbot chat
+
+# 第三步：管理会话
+uv run finchbot sessions
+
+# 第四步：管理定时任务
+uv run finchbot cron
+```
+
+| 命令 | 功能 |
+| :--- | :--- |
+| `finchbot config` | 交互式配置 LLM 提供商、API 密钥 |
+| `finchbot chat` | 开始或继续交互式对话 |
+| `finchbot sessions` | 全屏会话管理器 |
+| `finchbot cron` | 定时任务管理器 |
 
 ### Docker 部署
 
-FinchBot 提供官方 Docker 支持，一键部署：
-
 ```bash
-# 克隆仓库
-git clone https://gitee.com/xt765/FinchBot.git
+# 1. 克隆仓库
+git clone https://gitee.com/xt765/finchbot.git
 cd finchbot
 
-# 创建 .env 文件配置 API 密钥
+# 2. 配置环境变量
 cp .env.example .env
-# 编辑 .env 填入你的 API 密钥
+# 编辑 .env 填入 API 密钥
 
-# 构建并运行
+# 3. 启动服务
 docker-compose up -d
 
-# 使用 CLI
+# 4. 进入容器使用
 docker exec -it finchbot finchbot chat
 ```
 
-| 特性 | 说明 |
-| :--: | :--- |
-| **一键部署** | `docker-compose up -d` |
-| **持久化存储** | 通过卷持久化工作区和模型缓存 |
-| **健康检查** | 内置容器健康监控 |
-| **多架构支持** | 支持 x86_64 和 ARM64 |
+### 环境变量
+
+```bash
+# 方式一：直接设置
+export OPENAI_API_KEY="your-api-key"
+uv run finchbot chat
+
+# 方式二：使用 .env 文件
+cp .env.example .env
+# 编辑 .env 填入 API 密钥
+```
+
+### 日志级别
+
+```bash
+finchbot chat          # 默认：WARNING 及以上
+finchbot -v chat       # INFO 及以上
+finchbot -vv chat      # DEBUG 及以上（调试模式）
+```
 
 ---
 
-## 5. 技术栈
+## 技术栈
 
 |    层级    | 技术              |  版本  |
 | :--------: | :---------------- | :-----: |
 |  基础语言  | Python            |  3.13+  |
 | Agent 框架 | LangChain         | 1.2.10+ |
-|  状态管理  | LangGraph         | 1.0.8+ |
+|  状态管理  | LangGraph         |  1.0.8+ |
 |  数据验证  | Pydantic          |   v2   |
 |  向量存储  | ChromaDB          | 0.5.0+ |
 |  本地嵌入  | FastEmbed         | 0.4.0+ |
-|  搜索增强  | BM25              | 0.2.2+ |
 |  CLI 框架  | Typer             | 0.23.0+ |
 |   富文本   | Rich              | 14.3.0+ |
-|    日志    | Loguru            | 0.7.3+ |
-|  配置管理  | Pydantic Settings | 2.12.0+ |
+|    日志    | Loguru            |  0.7.3+ |
 
 ---
 
-## 6. 项目优势
+## 扩展指南
 
-|         优势         | 说明                                                        |
-| :------------------: | :---------------------------------------------------------- |
-|  **突破能力边界** | 遇到能力缺口时，智能体自主配置 MCP、创建技能 |
-|  **非阻塞执行** | 长任务后台运行，对话继续进行 |
-|  **自主调度** | 智能体自主创建 Cron 任务，7×24 运行 |
-|  **安全自主** | 文件操作限制在 workspace，危险 Shell 命令被阻止 |
-|  **持久记忆** | 双层存储 + Agentic RAG，永不遗忘 |
-|  **隐私优先**  | 使用 FastEmbed 本地生成向量，无需上传云端数据               |
-| **生产级稳定** | 单锁模式、自动重试、超时控制机制                          |
-|  **灵活扩展**  | 继承 FinchTool 或创建 SKILL.md 即可扩展，无需修改核心代码   |
-|  **模型无关**  | 支持 OpenAI, Anthropic, Gemini, DeepSeek, Moonshot, Groq 等 |
-| **多平台支持** | 通过 LangBot 支持 QQ、微信、飞书、钉钉、Discord、Telegram、Slack 等 12+ 平台 |
-| **MCP 支持** | 通过官方 langchain-mcp-adapters 支持 stdio 和 HTTP 传输 |
+### 添加工具
+
+**内置工具**：继承 `FinchTool` 基类，实现 `_run()` 方法，注册到 `ToolRegistry`。
+
+**MCP 工具**：在 `finchbot config` 中配置 MCP 服务器，或编辑 `~/.finchbot/workspace/config/mcp.json`。
+
+### 添加技能
+
+在 `~/.finchbot/workspace/skills/{skill-name}/` 下创建 `SKILL.md` 文件，或让 Agent 通过 `skill-creator` 自主创建。
+
+### 添加 LLM 提供商
+
+在 `providers/factory.py` 中添加新的 Provider 类。
+
+### 多平台支持
+
+使用 [LangBot](https://github.com/langbot-app/LangBot) 实现多平台消息支持，详见 [LangBot 文档](https://docs.langbot.app)。
 
 ---
 
-## 4. 智能体自主性架构
+## 文档
 
-**核心理念**: FinchBot 的设计目标是让智能体具备**真正的自主性**——不仅能响应用户请求，更能自主决策、自主执行、自主扩展。
+[使用指南](docs/zh-CN/guide/usage.md) • [API 文档](docs/zh-CN/api.md) • [配置指南](docs/zh-CN/config.md) • [扩展指南](docs/zh-CN/guide/extension.md) • [系统架构](docs/zh-CN/architecture.md) • [部署指南](docs/zh-CN/deployment.md) • [开发环境](docs/zh-CN/development.md) • [贡献指南](docs/zh-CN/contributing.md)
 
-### 自主性金字塔
+---
 
-```mermaid
-flowchart LR
-    subgraph L1["响应层"]
-        R1["对话系统"]
-        R2["工具调用"]
-        R3["上下文记忆"]
-    end
+## 贡献
 
-    subgraph L2["执行层"]
-        X1["后台任务"]
-        X2["异步处理"]
-        X3["非阻塞"]
-    end
+欢迎提交 Issue 和 Pull Request。请阅读 [贡献指南](docs/zh-CN/contributing.md) 了解更多信息。
 
-    subgraph L3["规划层"]
-        P1["定时任务"]
-        P2["心跳监控"]
-        P3["自动触发"]
-    end
+---
 
-    subgraph L4["扩展层"]
-        E1["MCP 自动配置"]
-        E2["技能创建"]
-        E3["动态加载"]
-    end
+## 许可证
 
-    L1 --> L2 --> L3 --> L4
-
-    style L1 fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20
-    style L2 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1
-    style L3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c
-    style L4 fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17
-```
-
-| 层级 | 能力 | 实现机制 | 用户价值 |
-|:---:|:---|:---|:---|
-| **响应层** | 响应用户请求 | 对话系统 + 工具调用 | 基础交互 |
-| **执行层** | 自主执行任务 | 后台任务系统 | 不阻塞对话 |
-| **规划层** | 自主设定计划 | 定时任务 + 心跳服务 | 自动化执行 |
-| **扩展层** | 自主扩展能力 | MCP 配置 + 技能创建 | 无限扩展 |
-
-### 自主性对比
-
-| 能力 | 传统 Agent | FinchBot 自主 Agent |
-|:---|:---|:---|
-| **任务执行** | 用户触发，阻塞等待 | 智能体自主启动后台任务 |
-| **任务调度** | 用户手动设置 | 智能体自主创建定时任务 |
-| **自我监控** | 无 | 心跳服务自主检查状态 |
-| **能力扩展** | 开发者编写代码 | 智能体自主配置 MCP |
-| **行为定义** | 硬编码提示词 | 智能体自主创建技能 |
-
-### 后台任务系统 (Subagent)
-
-FinchBot 实现了先进的后台任务系统，采用**三工具模式**让 Agent 能够异步执行长时间任务。
-
-```mermaid
-sequenceDiagram
-    participant U as 用户
-    participant A as 智能体
-    participant BG as 后台任务系统
-    participant S as Subagent
-
-    U->>A: 执行长时间任务
-    A->>BG: start_background_task
-    BG->>S: 创建独立 Agent
-    BG-->>A: 返回 job_id
-    A-->>U: 任务已启动 (ID: xxx)
-    
-    Note over U,A: 用户继续对话...
-    
-    U->>A: 其他问题
-    A-->>U: 正常响应
-    
-    U->>A: 任务进度如何？
-    A->>BG: check_task_status
-    BG-->>A: running
-    A-->>U: 正在执行中...
-    
-    S-->>BG: 任务完成
-    U->>A: 获取结果
-    A->>BG: get_task_result
-    BG-->>A: 返回结果
-    A-->>U: 任务结果展示
-```
-
-| 工具 | 功能 | 智能体自主性 |
-|:---|:---|:---|
-| `start_background_task` | 启动后台任务 | 智能体自主判断是否需要后台执行 |
-| `check_task_status` | 检查任务状态 | 智能体自主决定何时检查 |
-| `get_task_result` | 获取任务结果 | 智能体自主决定何时获取结果 |
-| `cancel_task` | 取消任务 | 智能体自主决定是否取消 |
-
-### 定时任务系统 (Cron)
-
-FinchBot 提供了完整的定时任务解决方案，支持 **CLI 交互式管理** 和 **工具调用** 两种方式。
-
-**Cron 表达式示例**：
-
-| 表达式 | 说明 |
-|:---|:---|
-| `0 9 * * *` | 每天上午 9:00 |
-| `0 */2 * * *` | 每 2 小时 |
-| `30 18 * * 1-5` | 工作日下午 6:30 |
-| `0 0 1 * *` | 每月 1 日零点 |
-
-**交互式界面**：
-
-| 按键 | 操作 |
-|:---:|:---|
-| ↑ / ↓ | 导航任务列表 |
-| Enter | 查看任务详情 |
-| n | 创建新任务 |
-| d | 删除选中任务 |
-| e | 启用/禁用任务 |
-| r | 立即执行任务 |
-| q | 退出管理 |
-
-### 心跳服务 (Heartbeat)
-
-心跳服务是 FinchBot 的后台监控服务，通过周期性读取 `HEARTBEAT.md` 文件来实现自动化任务触发。
-
-```mermaid
-flowchart LR
-    classDef heartbeat fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef cron fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef background fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
-    classDef notify fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-
-    H[HeartbeatService]:::heartbeat
-    C[CronService]:::cron
-    B[BackgroundTasks]:::background
-    N[通知系统]:::notify
-
-    H --> |触发执行| C
-    H --> |检查状态| B
-    H --> |发送提醒| N
-```
-
-### MCP 自主配置
-
-**核心理念**: 让智能体能够自主配置 MCP 服务器，动态扩展自己的工具能力。
-
-```mermaid
-flowchart TB
-    classDef need fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef config fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef tool fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef use fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
-
-    Need[智能体发现需求<br/>"我需要数据库能力"]:::need
-    Search[搜索可用 MCP 服务器]:::config
-    Config[configure_mcp<br/>自主配置]:::config
-    Load[动态加载新工具]:::tool
-    Use[智能体使用新工具]:::use
-
-    Need --> Search --> Config --> Load --> Use
-```
-
-**智能体自主扩展示例**：
-
-```
-用户：帮我分析这个 SQLite 数据库
-
-智能体思考：
-1. 当前工具检查：没有数据库操作工具
-2. 能力缺口：需要 SQLite 操作能力
-3. 解决方案：配置 SQLite MCP 服务器
-
-智能体行动：
-1. 调用 configure_mcp(action="add", server_name="sqlite", ...)
-2. 调用 refresh_capabilities() 刷新能力描述
-3. 新工具自动加载：query_sqlite, list_tables, ...
-
-智能体使用新能力：
-1. 调用 list_tables() 查看表结构
-2. 调用 query_sqlite("SELECT * FROM users LIMIT 10")
-3. 返回用户：数据库分析结果...
-```
+本项目采用 [MIT 许可证](LICENSE)。
 
 ---
 
