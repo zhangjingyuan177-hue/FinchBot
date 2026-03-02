@@ -13,7 +13,7 @@ from langchain_core.tools import BaseTool
 
 from finchbot.i18n import t
 from finchbot.tools.registry import get_global_registry
-from finchbot.workspace import GENERATED_DIR, get_generated_path
+from finchbot.workspace import get_generated_path
 
 
 class ToolsGenerator:
@@ -108,7 +108,7 @@ class ToolsGenerator:
             return None
 
         content = self.generate_tools_content()
-        
+
         # 使用新的目录结构
         file_path = get_generated_path(self.workspace, filename)
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,7 +134,9 @@ class ToolsGenerator:
             t("tools.categories.net_tools"): [],
             t("tools.categories.mem_mgmt"): [],
             t("tools.categories.session_mgmt"): [],
-            t("tools.categories.mcp"): [],  # 新增 MCP 工具分类
+            t("tools.categories.background"): [],
+            t("tools.categories.cron"): [],
+            t("tools.categories.mcp"): [],
             t("tools.categories.others"): [],
         }
 
@@ -171,10 +173,7 @@ class ToolsGenerator:
             return True
 
         # 方法3: 检查工具模块是否来自 mcp 相关包
-        if "mcp" in tool_module or "langchain_mcp" in tool_module:
-            return True
-
-        return False
+        return "mcp" in tool_module or "langchain_mcp" in tool_module
 
     def _determine_category(self, tool: BaseTool) -> str:
         """确定工具类别.
@@ -222,6 +221,20 @@ class ToolsGenerator:
             keyword in tool_desc for keyword in session_keywords
         ):
             return t("tools.categories.session_mgmt")
+
+        # 后台任务工具
+        background_keywords = ["background", "task", "job", "start_task", "check_status", "get_result", "cancel_task"]
+        if any(keyword in tool_name for keyword in background_keywords) or any(
+            keyword in tool_desc for keyword in background_keywords
+        ):
+            return t("tools.categories.background")
+
+        # 定时任务工具
+        cron_keywords = ["cron", "schedule", "scheduled", "timer"]
+        if any(keyword in tool_name for keyword in cron_keywords) or any(
+            keyword in tool_desc for keyword in cron_keywords
+        ):
+            return t("tools.categories.cron")
 
         return t("tools.categories.others")
 

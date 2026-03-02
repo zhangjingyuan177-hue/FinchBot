@@ -185,6 +185,11 @@ finchbot/
        factory.py    # AgentFactory
        context.py    # ContextBuilder
        skills.py     # SkillsLoader
+       capabilities.py # CapabilitiesBuilder
+       tools/        # Agent tools
+           background.py # Background task tools
+           cron.py   # Scheduled task tools
+       streaming.py  # Progress streaming
     memory/            # Memory system
        manager.py    # MemoryManager
        types.py      # Type definitions
@@ -215,6 +220,11 @@ finchbot/
     mcp/               # MCP protocol support
        client.py     # MCP client
        loader.py     # Tool loader
+    cron/              # Scheduled task service
+       service.py    # CronService
+       selector.py   # CronSelector (interactive UI)
+    heartbeat/         # Heartbeat service
+       service.py    # HeartbeatService
     sessions/          # Session management
     utils/             # Utility functions
         cache.py      # Generic cache base class

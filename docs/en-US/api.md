@@ -382,6 +382,14 @@ class MyCustomTool(FinchTool):
 | `RefreshCapabilitiesTool` | `refresh_capabilities` | Refresh capabilities file | None |
 | `GetCapabilitiesTool` | `get_capabilities` | Get current capabilities | None |
 | `GetMCPConfigPathTool` | `get_mcp_config_path` | Get MCP config file path | None |
+| `StartBackgroundTaskTool` | `start_background_task` | Start background task | `task_description`: Task description, `agent_type`: Agent type |
+| `CheckTaskStatusTool` | `check_task_status` | Check background task status | `job_id`: Task ID |
+| `GetTaskResultTool` | `get_task_result` | Get background task result | `job_id`: Task ID |
+| `CancelTaskTool` | `cancel_task` | Cancel background task | `job_id`: Task ID |
+| `CreateCronTool` | `create_cron` | Create scheduled task | `name`: Name, `schedule`: Cron expression, `message`: Content |
+| `ListCronsTool` | `list_crons` | List scheduled tasks | `include_disabled`: Include disabled tasks |
+| `DeleteCronTool` | `delete_cron` | Delete scheduled task | `cron_id`: Task ID |
+| `ToggleCronTool` | `toggle_cron` | Enable/disable scheduled task | `cron_id`: Task ID, `enabled`: Enable |
 
 ---
 
@@ -909,3 +917,529 @@ content = generator.generate_tools_content()
 # Write to file
 generator.write_to_file("TOOLS.md")
 ```
+
+---
+
+## 12. Background Tasks Module (`finchbot.agent.tools.background`)
+
+### 12.1 `JobManager`
+
+Background task manager (singleton pattern), responsible for managing all background task execution.
+
+```python
+class JobManager:
+    _instance: ClassVar[JobManager | None] = None
+    
+    @classmethod
+    def get_instance(cls) -> JobManager: ...
+    
+    async def start_task(
+        self,
+        task_description: str,
+        agent_type: str = "default",
+        config: Config | None = None,
+        workspace: Path | None = None,
+    ) -> str: ...
+    
+    async def check_status(self, job_id: str) -> dict[str, Any]: ...
+    
+    async def get_result(self, job_id: str) -> dict[str, Any]: ...
+    
+    async def cancel_task(self, job_id: str) -> bool: ...
+```
+
+**Method Descriptions**:
+- `start_task()`: Start a background task, returns task ID
+- `check_status()`: Check task status (pending/running/completed/failed/cancelled)
+- `get_result()`: Get completed task result
+- `cancel_task()`: Cancel a running task
+
+**Task Status**:
+
+| Status | Description |
+|:---|:---|
+| `pending` | Task waiting to execute |
+| `running` | Task is executing |
+| `completed` | Task completed successfully |
+| `failed` | Task execution failed |
+| `cancelled` | Task was cancelled |
+
+---
+
+### 12.2 Background Task Tools
+
+#### `StartBackgroundTaskTool`
+
+Start a background task.
+
+```python
+class StartBackgroundTaskTool(FinchTool):
+    name: str = "start_background_task"
+    description: str = "Start a background task..."
+    
+    def _run(
+        self,
+        task_description: str,
+        agent_type: str = "default",
+    ) -> str: ...
+```
+
+**Parameters**:
+- `task_description`: Task description, detailed explanation of the task
+- `agent_type`: Agent type (default/research/writer)
+
+**Returns**:
+- Task ID (UUID)
+
+---
+
+#### `CheckTaskStatusTool`
+
+Check background task status.
+
+```python
+class CheckTaskStatusTool(FinchTool):
+    name: str = "check_task_status"
+    description: str = "Check the status of a background task..."
+    
+    def _run(self, job_id: str) -> str: ...
+```
+
+**Parameters**:
+- `job_id`: Task ID
+
+**Returns**:
+- Task status info (JSON format)
+
+---
+
+#### `GetTaskResultTool`
+
+Get completed task result.
+
+```python
+class GetTaskResultTool(FinchTool):
+    name: str = "get_task_result"
+    description: str = "Get the detailed result of a completed task..."
+    
+    def _run(self, job_id: str) -> str: ...
+```
+
+**Parameters**:
+- `job_id`: Task ID
+
+**Returns**:
+- Task result (only available when status is completed)
+
+---
+
+#### `CancelTaskTool`
+
+Cancel a running background task.
+
+```python
+class CancelTaskTool(FinchTool):
+    name: str = "cancel_task"
+    description: str = "Cancel a running background task..."
+    
+    def _run(self, job_id: str) -> str: ...
+```
+
+**Parameters**:
+- `job_id`: Task ID
+
+**Returns**:
+- Cancel result (success/failure)
+
+---
+
+### 12.3 Usage Example
+
+```python
+from finchbot.agent.tools.background import JobManager
+from finchbot.config import load_config
+from pathlib import Path
+
+async def main():
+    config = load_config()
+    workspace = Path.home() / ".finchbot" / "workspace"
+    
+    manager = JobManager.get_instance()
+    
+    # Start background task
+    job_id = await manager.start_task(
+        task_description="Analyze project code structure",
+        agent_type="research",
+        config=config,
+        workspace=workspace,
+    )
+    
+    # Check status
+    status = await manager.check_status(job_id)
+    print(f"Task status: {status['status']}")
+    
+    # Get result
+    if status["status"] == "completed":
+        result = await manager.get_result(job_id)
+        print(f"Task result: {result}")
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
+
+---
+
+## 13. Scheduled Tasks Module (`finchbot.cron`)
+
+### 13.1 `CronService`
+
+Scheduled task service, supports standard cron expressions.
+
+```python
+class CronService:
+    def __init__(self, workspace: Path): ...
+    
+    async def start(self) -> None: ...
+    
+    async def stop(self) -> None: ...
+    
+    def create_job(
+        self,
+        name: str,
+        schedule: str,
+        message: str,
+        input_data: dict | None = None,
+    ) -> str: ...
+    
+    def delete_job(self, job_id: str) -> bool: ...
+    
+    def toggle_job(self, job_id: str, enabled: bool) -> bool: ...
+    
+    def list_jobs(self, include_disabled: bool = False) -> list[dict]: ...
+    
+    async def run_job_now(self, job_id: str) -> dict: ...
+```
+
+**Method Descriptions**:
+- `start()`: Start the scheduled task service
+- `stop()`: Stop the scheduled task service
+- `create_job()`: Create a scheduled task
+- `delete_job()`: Delete a scheduled task
+- `toggle_job()`: Enable/disable a scheduled task
+- `list_jobs()`: List all scheduled tasks
+- `run_job_now()`: Execute a scheduled task immediately
+
+**Cron Expression Format**: `minute hour day month weekday`
+
+| Expression | Description |
+|:---|:---|
+| `0 9 * * *` | Daily at 9 AM |
+| `0 */2 * * *` | Every 2 hours |
+| `30 18 * * 1-5` | Weekdays at 6:30 PM |
+| `0 0 1 * *` | First day of month at midnight |
+
+---
+
+### 13.2 Scheduled Task Tools
+
+#### `CreateCronTool`
+
+Create a scheduled task.
+
+```python
+class CreateCronTool(FinchTool):
+    name: str = "create_cron"
+    description: str = "Create a scheduled task..."
+    
+    def _run(
+        self,
+        name: str,
+        schedule: str,
+        message: str,
+        input_data: str | None = None,
+    ) -> str: ...
+```
+
+**Parameters**:
+- `name`: Task name
+- `schedule`: Cron expression (5 fields: minute hour day month weekday)
+- `message`: Task content
+- `input_data`: Optional input data (JSON format)
+
+---
+
+#### `ListCronsTool`
+
+List all scheduled tasks.
+
+```python
+class ListCronsTool(FinchTool):
+    name: str = "list_crons"
+    description: str = "List all scheduled tasks..."
+    
+    def _run(self, include_disabled: bool = False) -> str: ...
+```
+
+**Parameters**:
+- `include_disabled`: Whether to include disabled tasks
+
+---
+
+#### `DeleteCronTool`
+
+Delete a scheduled task.
+
+```python
+class DeleteCronTool(FinchTool):
+    name: str = "delete_cron"
+    description: str = "Delete a scheduled task..."
+    
+    def _run(self, cron_id: str) -> str: ...
+```
+
+**Parameters**:
+- `cron_id`: Task ID
+
+---
+
+#### `ToggleCronTool`
+
+Enable or disable a scheduled task.
+
+```python
+class ToggleCronTool(FinchTool):
+    name: str = "toggle_cron"
+    description: str = "Enable or disable a scheduled task..."
+    
+    def _run(self, cron_id: str, enabled: bool) -> str: ...
+```
+
+**Parameters**:
+- `cron_id`: Task ID
+- `enabled`: Whether to enable (true/false)
+
+---
+
+### 13.3 Usage Example
+
+```python
+from finchbot.cron.service import CronService
+from pathlib import Path
+
+async def main():
+    workspace = Path.home() / ".finchbot" / "workspace"
+    service = CronService(workspace)
+    
+    # Create scheduled task
+    job_id = service.create_job(
+        name="Morning reminder",
+        schedule="0 9 * * *",
+        message="Please check today's email",
+    )
+    
+    # List all tasks
+    jobs = service.list_jobs()
+    for job in jobs:
+        print(f"{job['name']}: {job['schedule']}")
+    
+    # Start service
+    await service.start()
+    
+    # Stop service
+    await service.stop()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
+
+---
+
+## 14. Heartbeat Service Module (`finchbot.heartbeat`)
+
+### 14.1 `HeartbeatService`
+
+Heartbeat service that periodically checks the HEARTBEAT.md file for pending tasks.
+
+```python
+class HeartbeatService:
+    def __init__(
+        self,
+        workspace: Path,
+        interval: int = 300,
+        config: Config | None = None,
+    ): ...
+    
+    async def start(self) -> None: ...
+    
+    async def stop(self) -> None: ...
+    
+    def is_running(self) -> bool: ...
+```
+
+**Parameters**:
+- `workspace`: Workspace path
+- `interval`: Check interval (seconds, default 300)
+- `config`: Configuration object
+
+**How It Works**:
+1. Periodically reads the `HEARTBEAT.md` file in the workspace root
+2. Uses LLM to analyze file content and determine if there are pending tasks
+3. If there are pending tasks, triggers the corresponding processing flow
+
+**HEARTBEAT.md Example**:
+
+```markdown
+# Heartbeat Tasks
+
+Add tasks that need periodic checking to this file.
+
+Examples:
+- [ ] Check email
+- [ ] Review schedule
+- [ ] Review goals
+```
+
+---
+
+### 14.2 Usage Example
+
+```python
+from finchbot.heartbeat.service import HeartbeatService
+from finchbot.config import load_config
+from pathlib import Path
+
+async def main():
+    config = load_config()
+    workspace = Path.home() / ".finchbot" / "workspace"
+    
+    service = HeartbeatService(
+        workspace=workspace,
+        interval=300,  # 5 minutes
+        config=config,
+    )
+    
+    # Start service
+    await service.start()
+    
+    # Check status
+    print(f"Service running: {service.is_running()}")
+    
+    # Stop service
+    await service.stop()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
+
+---
+
+## 15. Progress Streaming Module (`finchbot.agent.streaming`)
+
+### 15.1 Progress Output Functions
+
+Utility functions for real-time progress feedback.
+
+#### `emit_progress`
+
+Send a progress update message.
+
+```python
+def emit_progress(message: str) -> None:
+    """Send a progress update message.
+    
+    Args:
+        message: Progress message content.
+    """
+```
+
+**Usage Example**:
+```python
+from finchbot.agent.streaming import emit_progress
+
+emit_progress("Analyzing files...")
+emit_progress("Processing 50% complete")
+```
+
+---
+
+#### `emit_tool_call`
+
+Send a tool call notification.
+
+```python
+def emit_tool_call(tool_name: str, args: dict | None = None) -> None:
+    """Send a tool call notification.
+    
+    Args:
+        tool_name: Tool name.
+        args: Tool arguments (optional).
+    """
+```
+
+**Usage Example**:
+```python
+from finchbot.agent.streaming import emit_tool_call
+
+emit_tool_call("read_file", {"file_path": "/path/to/file"})
+emit_tool_call("web_search", {"query": "Python async"})
+```
+
+---
+
+### 15.2 `ProgressReporter`
+
+Progress reporter class with richer progress reporting functionality.
+
+```python
+class ProgressReporter:
+    def __init__(self, writer: StreamWriter | None = None): ...
+    
+    def report(self, message: str, progress_type: str = "status") -> None: ...
+    
+    def report_thinking(self, message: str = "Thinking...") -> None: ...
+    
+    def report_tool_call(self, tool_name: str, args: dict | None = None) -> None: ...
+    
+    def report_result(self, result: str) -> None: ...
+    
+    def report_error(self, error: str) -> None: ...
+```
+
+**Method Descriptions**:
+- `report()`: Send a general progress report
+- `report_thinking()`: Send thinking status
+- `report_tool_call()`: Send tool call notification
+- `report_result()`: Send result
+- `report_error()`: Send error information
+
+---
+
+### 15.3 Usage Example
+
+```python
+from finchbot.agent.streaming import ProgressReporter
+
+# Create progress reporter
+reporter = ProgressReporter()
+
+# Report progress
+reporter.report_thinking("Analyzing problem...")
+reporter.report_tool_call("read_file", {"file_path": "data.json"})
+reporter.report_result("File read successfully")
+reporter.report_error("File not found")
+```
+
+---
+
+### 15.4 Progress Types
+
+| Type | Description |
+|:---|:---|
+| `thinking` | Thinking status |
+| `tool_call` | Tool call |
+| `result` | Execution result |
+| `error` | Error information |
+| `status` | General status |

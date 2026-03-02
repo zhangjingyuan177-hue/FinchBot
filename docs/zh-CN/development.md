@@ -183,6 +183,11 @@ finchbot/
          factory.py    # AgentFactory
          context.py    # ContextBuilder
          skills.py     # SkillsLoader
+         capabilities.py # CapabilitiesBuilder
+         tools/        # Agent 工具
+             background.py # 后台任务工具
+             cron.py   # 定时任务工具
+         streaming.py  # 进度流输出
      memory/            # 记忆系统
          manager.py    # MemoryManager
          types.py      # 类型定义
@@ -213,6 +218,11 @@ finchbot/
      mcp/               # MCP 协议支持
          client.py     # MCP 客户端
          loader.py     # 工具加载器
+     cron/              # 定时任务服务
+         service.py    # CronService
+         selector.py   # CronSelector (交互式 UI)
+     heartbeat/         # 心跳服务
+         service.py    # HeartbeatService
      sessions/          # 会话管理
      utils/             # 工具函数
          cache.py      # 通用缓存基类

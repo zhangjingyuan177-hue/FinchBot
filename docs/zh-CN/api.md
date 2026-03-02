@@ -382,6 +382,14 @@ class MyCustomTool(FinchTool):
 | `RefreshCapabilitiesTool` | `refresh_capabilities` | 刷新能力描述文件 | 无 |
 | `GetCapabilitiesTool` | `get_capabilities` | 获取当前能力描述 | 无 |
 | `GetMCPConfigPathTool` | `get_mcp_config_path` | 获取 MCP 配置文件路径 | 无 |
+| `StartBackgroundTaskTool` | `start_background_task` | 启动后台任务 | `task_description`：任务描述，`agent_type`：代理类型 |
+| `CheckTaskStatusTool` | `check_task_status` | 检查后台任务状态 | `job_id`：任务 ID |
+| `GetTaskResultTool` | `get_task_result` | 获取后台任务结果 | `job_id`：任务 ID |
+| `CancelTaskTool` | `cancel_task` | 取消后台任务 | `job_id`：任务 ID |
+| `CreateCronTool` | `create_cron` | 创建定时任务 | `name`：名称，`schedule`：cron 表达式，`message`：内容 |
+| `ListCronsTool` | `list_crons` | 列出定时任务 | `include_disabled`：是否包含禁用的任务 |
+| `DeleteCronTool` | `delete_cron` | 删除定时任务 | `cron_id`：任务 ID |
+| `ToggleCronTool` | `toggle_cron` | 启用/禁用定时任务 | `cron_id`：任务 ID，`enabled`：是否启用 |
 
 ---
 
@@ -909,3 +917,529 @@ content = generator.generate_tools_content()
 # 写入文件
 generator.write_to_file("TOOLS.md")
 ```
+
+---
+
+## 12. 后台任务模块 (`finchbot.agent.tools.background`)
+
+### 12.1 `JobManager`
+
+后台任务管理器（单例模式），负责管理所有后台任务的执行。
+
+```python
+class JobManager:
+    _instance: ClassVar[JobManager | None] = None
+    
+    @classmethod
+    def get_instance(cls) -> JobManager: ...
+    
+    async def start_task(
+        self,
+        task_description: str,
+        agent_type: str = "default",
+        config: Config | None = None,
+        workspace: Path | None = None,
+    ) -> str: ...
+    
+    async def check_status(self, job_id: str) -> dict[str, Any]: ...
+    
+    async def get_result(self, job_id: str) -> dict[str, Any]: ...
+    
+    async def cancel_task(self, job_id: str) -> bool: ...
+```
+
+**方法说明**：
+- `start_task()`: 启动后台任务，返回任务 ID
+- `check_status()`: 检查任务状态（pending/running/completed/failed/cancelled）
+- `get_result()`: 获取已完成任务的结果
+- `cancel_task()`: 取消正在运行的任务
+
+**任务状态**：
+
+| 状态 | 说明 |
+|:---|:---|
+| `pending` | 任务等待执行 |
+| `running` | 任务正在执行 |
+| `completed` | 任务执行完成 |
+| `failed` | 任务执行失败 |
+| `cancelled` | 任务已取消 |
+
+---
+
+### 12.2 后台任务工具
+
+#### `StartBackgroundTaskTool`
+
+启动后台任务。
+
+```python
+class StartBackgroundTaskTool(FinchTool):
+    name: str = "start_background_task"
+    description: str = "启动一个后台任务..."
+    
+    def _run(
+        self,
+        task_description: str,
+        agent_type: str = "default",
+    ) -> str: ...
+```
+
+**参数**：
+- `task_description`: 任务描述，详细说明要执行的任务
+- `agent_type`: 代理类型（default/research/writer）
+
+**返回值**：
+- 任务 ID（UUID）
+
+---
+
+#### `CheckTaskStatusTool`
+
+检查后台任务状态。
+
+```python
+class CheckTaskStatusTool(FinchTool):
+    name: str = "check_task_status"
+    description: str = "检查后台任务的状态..."
+    
+    def _run(self, job_id: str) -> str: ...
+```
+
+**参数**：
+- `job_id`: 任务 ID
+
+**返回值**：
+- 任务状态信息（JSON 格式）
+
+---
+
+#### `GetTaskResultTool`
+
+获取已完成任务的结果。
+
+```python
+class GetTaskResultTool(FinchTool):
+    name: str = "get_task_result"
+    description: str = "获取已完成任务的详细结果..."
+    
+    def _run(self, job_id: str) -> str: ...
+```
+
+**参数**：
+- `job_id`: 任务 ID
+
+**返回值**：
+- 任务结果（仅在状态为 completed 时可用）
+
+---
+
+#### `CancelTaskTool`
+
+取消正在运行的后台任务。
+
+```python
+class CancelTaskTool(FinchTool):
+    name: str = "cancel_task"
+    description: str = "取消正在运行的后台任务..."
+    
+    def _run(self, job_id: str) -> str: ...
+```
+
+**参数**：
+- `job_id`: 任务 ID
+
+**返回值**：
+- 取消结果（成功/失败）
+
+---
+
+### 12.3 使用示例
+
+```python
+from finchbot.agent.tools.background import JobManager
+from finchbot.config import load_config
+from pathlib import Path
+
+async def main():
+    config = load_config()
+    workspace = Path.home() / ".finchbot" / "workspace"
+    
+    manager = JobManager.get_instance()
+    
+    # 启动后台任务
+    job_id = await manager.start_task(
+        task_description="分析项目代码结构",
+        agent_type="research",
+        config=config,
+        workspace=workspace,
+    )
+    
+    # 检查状态
+    status = await manager.check_status(job_id)
+    print(f"任务状态: {status['status']}")
+    
+    # 获取结果
+    if status["status"] == "completed":
+        result = await manager.get_result(job_id)
+        print(f"任务结果: {result}")
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
+
+---
+
+## 13. 定时任务模块 (`finchbot.cron`)
+
+### 13.1 `CronService`
+
+定时任务服务，支持标准 cron 表达式。
+
+```python
+class CronService:
+    def __init__(self, workspace: Path): ...
+    
+    async def start(self) -> None: ...
+    
+    async def stop(self) -> None: ...
+    
+    def create_job(
+        self,
+        name: str,
+        schedule: str,
+        message: str,
+        input_data: dict | None = None,
+    ) -> str: ...
+    
+    def delete_job(self, job_id: str) -> bool: ...
+    
+    def toggle_job(self, job_id: str, enabled: bool) -> bool: ...
+    
+    def list_jobs(self, include_disabled: bool = False) -> list[dict]: ...
+    
+    async def run_job_now(self, job_id: str) -> dict: ...
+```
+
+**方法说明**：
+- `start()`: 启动定时任务服务
+- `stop()`: 停止定时任务服务
+- `create_job()`: 创建定时任务
+- `delete_job()`: 删除定时任务
+- `toggle_job()`: 启用/禁用定时任务
+- `list_jobs()`: 列出所有定时任务
+- `run_job_now()`: 立即执行定时任务
+
+**Cron 表达式格式**：`分 时 日 月 周`
+
+| 表达式 | 说明 |
+|:---|:---|
+| `0 9 * * *` | 每天上午 9 点 |
+| `0 */2 * * *` | 每 2 小时 |
+| `30 18 * * 1-5` | 工作日下午 6:30 |
+| `0 0 1 * *` | 每月 1 日零点 |
+
+---
+
+### 13.2 定时任务工具
+
+#### `CreateCronTool`
+
+创建定时任务。
+
+```python
+class CreateCronTool(FinchTool):
+    name: str = "create_cron"
+    description: str = "创建一个定时任务..."
+    
+    def _run(
+        self,
+        name: str,
+        schedule: str,
+        message: str,
+        input_data: str | None = None,
+    ) -> str: ...
+```
+
+**参数**：
+- `name`: 任务名称
+- `schedule`: Cron 表达式（5 位：分 时 日 月 周）
+- `message`: 任务内容
+- `input_data`: 可选的输入数据（JSON 格式）
+
+---
+
+#### `ListCronsTool`
+
+列出所有定时任务。
+
+```python
+class ListCronsTool(FinchTool):
+    name: str = "list_crons"
+    description: str = "列出所有定时任务..."
+    
+    def _run(self, include_disabled: bool = False) -> str: ...
+```
+
+**参数**：
+- `include_disabled`: 是否包含已禁用的任务
+
+---
+
+#### `DeleteCronTool`
+
+删除定时任务。
+
+```python
+class DeleteCronTool(FinchTool):
+    name: str = "delete_cron"
+    description: str = "删除指定的定时任务..."
+    
+    def _run(self, cron_id: str) -> str: ...
+```
+
+**参数**：
+- `cron_id`: 任务 ID
+
+---
+
+#### `ToggleCronTool`
+
+启用或禁用定时任务。
+
+```python
+class ToggleCronTool(FinchTool):
+    name: str = "toggle_cron"
+    description: str = "启用或禁用定时任务..."
+    
+    def _run(self, cron_id: str, enabled: bool) -> str: ...
+```
+
+**参数**：
+- `cron_id`: 任务 ID
+- `enabled`: 是否启用（true/false）
+
+---
+
+### 13.3 使用示例
+
+```python
+from finchbot.cron.service import CronService
+from pathlib import Path
+
+async def main():
+    workspace = Path.home() / ".finchbot" / "workspace"
+    service = CronService(workspace)
+    
+    # 创建定时任务
+    job_id = service.create_job(
+        name="晨间提醒",
+        schedule="0 9 * * *",
+        message="请查看今日邮件",
+    )
+    
+    # 列出所有任务
+    jobs = service.list_jobs()
+    for job in jobs:
+        print(f"{job['name']}: {job['schedule']}")
+    
+    # 启动服务
+    await service.start()
+    
+    # 停止服务
+    await service.stop()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
+
+---
+
+## 14. 心跳服务模块 (`finchbot.heartbeat`)
+
+### 14.1 `HeartbeatService`
+
+心跳服务，定期检查 HEARTBEAT.md 文件中的待办事项。
+
+```python
+class HeartbeatService:
+    def __init__(
+        self,
+        workspace: Path,
+        interval: int = 300,
+        config: Config | None = None,
+    ): ...
+    
+    async def start(self) -> None: ...
+    
+    async def stop(self) -> None: ...
+    
+    def is_running(self) -> bool: ...
+```
+
+**参数**：
+- `workspace`: 工作区路径
+- `interval`: 检查间隔（秒，默认 300）
+- `config`: 配置对象
+
+**工作原理**：
+1. 定期读取工作区根目录的 `HEARTBEAT.md` 文件
+2. 使用 LLM 分析文件内容，判断是否有待处理任务
+3. 如果有待处理任务，触发相应的处理流程
+
+**HEARTBEAT.md 示例**：
+
+```markdown
+# 心跳任务
+
+在此文件中添加需要定期检查的任务。
+
+例如:
+- [ ] 检查邮件
+- [ ] 查看日程
+- [ ] 回顾目标
+```
+
+---
+
+### 14.2 使用示例
+
+```python
+from finchbot.heartbeat.service import HeartbeatService
+from finchbot.config import load_config
+from pathlib import Path
+
+async def main():
+    config = load_config()
+    workspace = Path.home() / ".finchbot" / "workspace"
+    
+    service = HeartbeatService(
+        workspace=workspace,
+        interval=300,  # 5 分钟
+        config=config,
+    )
+    
+    # 启动服务
+    await service.start()
+    
+    # 检查状态
+    print(f"服务运行中: {service.is_running()}")
+    
+    # 停止服务
+    await service.stop()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
+
+---
+
+## 15. 进度流模块 (`finchbot.agent.streaming`)
+
+### 15.1 进度输出函数
+
+提供实时进度反馈的工具函数。
+
+#### `emit_progress`
+
+发送进度更新消息。
+
+```python
+def emit_progress(message: str) -> None:
+    """发送进度更新消息。
+    
+    Args:
+        message: 进度消息内容。
+    """
+```
+
+**使用示例**：
+```python
+from finchbot.agent.streaming import emit_progress
+
+emit_progress("正在分析文件...")
+emit_progress("处理完成 50%")
+```
+
+---
+
+#### `emit_tool_call`
+
+发送工具调用通知。
+
+```python
+def emit_tool_call(tool_name: str, args: dict | None = None) -> None:
+    """发送工具调用通知。
+    
+    Args:
+        tool_name: 工具名称。
+        args: 工具参数（可选）。
+    """
+```
+
+**使用示例**：
+```python
+from finchbot.agent.streaming import emit_tool_call
+
+emit_tool_call("read_file", {"file_path": "/path/to/file"})
+emit_tool_call("web_search", {"query": "Python async"})
+```
+
+---
+
+### 15.2 `ProgressReporter`
+
+进度报告器类，提供更丰富的进度报告功能。
+
+```python
+class ProgressReporter:
+    def __init__(self, writer: StreamWriter | None = None): ...
+    
+    def report(self, message: str, progress_type: str = "status") -> None: ...
+    
+    def report_thinking(self, message: str = "思考中...") -> None: ...
+    
+    def report_tool_call(self, tool_name: str, args: dict | None = None) -> None: ...
+    
+    def report_result(self, result: str) -> None: ...
+    
+    def report_error(self, error: str) -> None: ...
+```
+
+**方法说明**：
+- `report()`: 发送通用进度报告
+- `report_thinking()`: 发送思考状态
+- `report_tool_call()`: 发送工具调用通知
+- `report_result()`: 发送结果
+- `report_error()`: 发送错误信息
+
+---
+
+### 15.3 使用示例
+
+```python
+from finchbot.agent.streaming import ProgressReporter
+
+# 创建进度报告器
+reporter = ProgressReporter()
+
+# 报告进度
+reporter.report_thinking("正在分析问题...")
+reporter.report_tool_call("read_file", {"file_path": "data.json"})
+reporter.report_result("文件读取成功")
+reporter.report_error("文件不存在")
+```
+
+---
+
+### 15.4 进度类型
+
+| 类型 | 说明 |
+|:---|:---|
+| `thinking` | 思考状态 |
+| `tool_call` | 工具调用 |
+| `result` | 执行结果 |
+| `error` | 错误信息 |
+| `status` | 通用状态 |
