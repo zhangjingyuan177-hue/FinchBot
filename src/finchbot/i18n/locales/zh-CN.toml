@@ -709,3 +709,164 @@ slack_token = "Slack Bot Token"
 google_maps_key = "Google Maps API Key"
 postgres_conn = "PostgreSQL 连接字符串"
 sqlite_path = "SQLite 数据库路径"
+
+# ========================================
+# 后台任务 (Background Tasks)
+# ========================================
+
+[background]
+task_started = "后台任务已启动 (ID: {job_id})"
+job_not_found = "任务 {job_id} 不存在"
+job_not_completed = "任务 {job_id} 尚未完成，当前状态: {status}"
+no_result = "无结果"
+status_report = "任务 {job_id} 状态: {status}"
+status_with_result = "任务 {job_id} 状态: {status}, 结果: {result}"
+status_with_error = "任务 {job_id} 状态: {status}, 错误: {error}"
+cancel_success = "任务 {job_id} 已取消"
+cancel_failed = "任务 {job_id} 取消失败"
+
+[tools.start_background_task]
+name = "start_background_task"
+description = "启动一个后台任务。适用于长时间运行的任务，任务会在后台执行，你可以继续当前对话。使用 check_task_status 检查状态，使用 get_task_result 获取结果。"
+param_task_description = "任务描述，详细说明要执行的任务"
+param_agent_type = "代理类型: default(默认), research(研究), writer(写作)"
+
+[tools.check_task_status]
+name = "check_task_status"
+description = "检查后台任务的状态。返回任务的当前状态（pending/running/completed/failed/cancelled）。"
+param_job_id = "任务 ID"
+
+[tools.get_task_result]
+name = "get_task_result"
+description = "获取已完成任务的详细结果。仅当任务状态为 completed 时可用。"
+param_job_id = "任务 ID"
+
+[tools.cancel_task]
+name = "cancel_task"
+description = "取消正在运行的后台任务。"
+param_job_id = "任务 ID"
+
+# ========================================
+# 定时任务 (Cron Jobs)
+# ========================================
+
+[cron]
+title = "⏰ 定时任务"
+no_jobs = "暂无定时任务"
+service_started = "定时任务服务已启动，共 {count} 个任务"
+service_stopped = "定时任务服务已停止"
+job_created = "定时任务已创建 (ID: {id}, 调度: {schedule})"
+job_deleted = "定时任务 {id} 已删除"
+job_not_found = "定时任务 {id} 不存在"
+executing = "正在执行定时任务: {name} (ID: {id})"
+execute_success = "定时任务执行成功: {name}"
+execute_failed = "定时任务执行失败: {name} - {error}"
+
+[cron.columns]
+id = "ID"
+name = "名称"
+schedule = "调度"
+next_run = "下次执行"
+status = "状态"
+message = "任务内容"
+
+[cron.status]
+enabled = "已启用"
+disabled = "已禁用"
+pending = "待执行"
+running = "执行中"
+completed = "已完成"
+failed = "失败"
+cancelled = "已取消"
+
+[cron.help]
+navigate = "导航"
+detail = "详情"
+n_new = "新建"
+d_delete = "删除"
+e_toggle = "启用/禁用"
+r_run = "立即执行"
+q_quit = "退出"
+any_key_back = "按任意键返回"
+
+[cron.input]
+name = "任务名称:"
+schedule = "时间表达式（如 '0 9 * * *' 表示每天早上9点）:"
+message = "任务内容:"
+
+[cron.actions]
+create_first = "创建第一个任务"
+create_success = "任务 '{name}' 创建成功"
+create_failed = "创建失败: {error}"
+confirm_delete = "确定删除任务 '{name}'?"
+delete_success = "任务 '{name}' 已删除"
+toggle_success = "任务 '{name}' 已{status}"
+running = "正在执行 '{name}'..."
+run_success = "任务 '{name}' 执行完成"
+run_failed = "执行失败: {error}"
+quit = "已退出任务管理"
+
+[cron.detail]
+title = "📋 任务详情"
+id = "ID"
+name = "名称"
+schedule = "调度"
+message = "内容"
+next_run = "下次执行"
+run_count = "执行次数"
+status = "状态"
+created_at = "创建时间"
+
+[cron.format]
+every_seconds = "每 {n} 秒"
+every_minutes = "每 {n} 分钟"
+every_hours = "每 {n} 小时"
+every_days = "每 {n} 天"
+overdue = "已过期"
+in_seconds = "{n} 秒后"
+in_minutes = "{n} 分钟后"
+in_hours = "{n} 小时后"
+in_days = "{n} 天后"
+
+[tools.create_cron]
+name = "create_cron"
+description = "创建一个定时任务。支持标准 cron 表达式。例如: '0 9 * * *' 表示每天早上9点，'0 */2 * * *' 表示每2小时。"
+param_name = "任务名称"
+param_schedule = "Cron 表达式（5位：分 时 日 月 周）"
+param_message = "任务内容"
+param_input = "可选的输入数据（JSON 格式）"
+
+[tools.list_crons]
+name = "list_crons"
+description = "列出所有定时任务。"
+param_include_disabled = "是否包含已禁用的任务"
+
+[tools.delete_cron]
+name = "delete_cron"
+description = "删除指定的定时任务。"
+param_cron_id = "任务 ID"
+
+[tools.toggle_cron]
+name = "toggle_cron"
+description = "启用或禁用定时任务。"
+param_cron_id = "任务 ID"
+param_enabled = "是否启用（true/false）"
+
+# ========================================
+# 进度输出 (Progress Streaming)
+# ========================================
+
+[progress]
+tool_call = "调用 {tool}"
+tools_used = "🔧 工具调用"
+thinking = "思考中..."
+generating = "生成响应..."
+completed = "完成"
+error = "错误"
+
+[progress.types]
+thinking = "思考"
+tool_call = "工具调用"
+result = "结果"
+error = "错误"
+status = "状态"

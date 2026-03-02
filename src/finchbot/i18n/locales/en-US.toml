@@ -766,3 +766,164 @@ cleanup_success = "Cleaned up {count} old files"
 output_dir = "Output directory"
 dry_run_hint = "Preview mode - no files will be deleted"
 dry_run_would_delete = "Would delete {count} files"
+
+# ========================================
+# Background Tasks
+# ========================================
+
+[background]
+task_started = "Background task started (ID: {job_id})"
+job_not_found = "Task {job_id} not found"
+job_not_completed = "Task {job_id} not completed, current status: {status}"
+no_result = "No result"
+status_report = "Task {job_id} status: {status}"
+status_with_result = "Task {job_id} status: {status}, result: {result}"
+status_with_error = "Task {job_id} status: {status}, error: {error}"
+cancel_success = "Task {job_id} cancelled"
+cancel_failed = "Failed to cancel task {job_id}"
+
+[tools.start_background_task]
+name = "start_background_task"
+description = "Start a background task. Useful for long-running tasks. The task runs in background while you can continue the conversation. Use check_task_status to check status, use get_task_result to get results."
+param_task_description = "Task description, detailed explanation of the task to execute"
+param_agent_type = "Agent type: default, research, writer"
+
+[tools.check_task_status]
+name = "check_task_status"
+description = "Check the status of a background task. Returns current status (pending/running/completed/failed/cancelled)."
+param_job_id = "Task ID"
+
+[tools.get_task_result]
+name = "get_task_result"
+description = "Get the detailed result of a completed task. Only available when task status is completed."
+param_job_id = "Task ID"
+
+[tools.cancel_task]
+name = "cancel_task"
+description = "Cancel a running background task."
+param_job_id = "Task ID"
+
+# ========================================
+# Cron Jobs
+# ========================================
+
+[cron]
+title = "⏰ Scheduled Tasks"
+no_jobs = "No scheduled tasks"
+service_started = "Cron service started with {count} tasks"
+service_stopped = "Cron service stopped"
+job_created = "Cron job created (ID: {id}, schedule: {schedule})"
+job_deleted = "Cron job {id} deleted"
+job_not_found = "Cron job {id} not found"
+executing = "Executing cron job: {name} (ID: {id})"
+execute_success = "Cron job executed successfully: {name}"
+execute_failed = "Cron job execution failed: {name} - {error}"
+
+[cron.columns]
+id = "ID"
+name = "Name"
+schedule = "Schedule"
+next_run = "Next Run"
+status = "Status"
+message = "Message"
+
+[cron.status]
+enabled = "Enabled"
+disabled = "Disabled"
+pending = "Pending"
+running = "Running"
+completed = "Completed"
+failed = "Failed"
+cancelled = "Cancelled"
+
+[cron.help]
+navigate = "Navigate"
+detail = "Details"
+n_new = "New"
+d_delete = "Delete"
+e_toggle = "Enable/Disable"
+r_run = "Run Now"
+q_quit = "Quit"
+any_key_back = "Press any key to go back"
+
+[cron.input]
+name = "Task name:"
+schedule = "Schedule expression (e.g., '0 9 * * *' for daily at 9am):"
+message = "Task content:"
+
+[cron.actions]
+create_first = "Create first task"
+create_success = "Task '{name}' created successfully"
+create_failed = "Creation failed: {error}"
+confirm_delete = "Delete task '{name}'?"
+delete_success = "Task '{name}' deleted"
+toggle_success = "Task '{name}' {status}"
+running = "Executing '{name}'..."
+run_success = "Task '{name}' completed"
+run_failed = "Execution failed: {error}"
+quit = "Exited task management"
+
+[cron.detail]
+title = "📋 Task Details"
+id = "ID"
+name = "Name"
+schedule = "Schedule"
+message = "Content"
+next_run = "Next Run"
+run_count = "Run Count"
+status = "Status"
+created_at = "Created At"
+
+[cron.format]
+every_seconds = "Every {n} seconds"
+every_minutes = "Every {n} minutes"
+every_hours = "Every {n} hours"
+every_days = "Every {n} days"
+overdue = "Overdue"
+in_seconds = "In {n}s"
+in_minutes = "In {n}m"
+in_hours = "In {n}h"
+in_days = "In {n}d"
+
+[tools.create_cron]
+name = "create_cron"
+description = "Create a scheduled task. Supports standard cron expressions. E.g., '0 9 * * *' for daily at 9am, '0 */2 * * *' for every 2 hours."
+param_name = "Task name"
+param_schedule = "Cron expression (5 fields: minute hour day month weekday)"
+param_message = "Task content"
+param_input = "Optional input data (JSON format)"
+
+[tools.list_crons]
+name = "list_crons"
+description = "List all scheduled tasks."
+param_include_disabled = "Include disabled tasks"
+
+[tools.delete_cron]
+name = "delete_cron"
+description = "Delete a scheduled task."
+param_cron_id = "Task ID"
+
+[tools.toggle_cron]
+name = "toggle_cron"
+description = "Enable or disable a scheduled task."
+param_cron_id = "Task ID"
+param_enabled = "Enable (true/false)"
+
+# ========================================
+# Progress Streaming
+# ========================================
+
+[progress]
+tool_call = "Calling {tool}"
+tools_used = "🔧 Tool Calls"
+thinking = "Thinking..."
+generating = "Generating response..."
+completed = "Completed"
+error = "Error"
+
+[progress.types]
+thinking = "Thinking"
+tool_call = "Tool Call"
+result = "Result"
+error = "Error"
+status = "Status"

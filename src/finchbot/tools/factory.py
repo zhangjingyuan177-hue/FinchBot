@@ -8,6 +8,9 @@ from langchain_core.tools import BaseTool
 from loguru import logger
 
 from finchbot.agent.skills import BUILTIN_SKILLS_DIR
+from finchbot.agent.tools.background import BACKGROUND_TOOLS
+from finchbot.agent.tools.cron import CRON_TOOLS, set_cron_service
+from finchbot.cron import CronService
 from finchbot.memory import MemoryManager
 from finchbot.tools import (
     ConfigureMCPTool,
@@ -103,6 +106,14 @@ class ToolFactory:
             GetCapabilitiesTool(workspace=str(self.workspace)),
             GetMCPConfigPathTool(workspace=str(self.workspace)),
         ])
+
+        # 后台任务工具 (Three-tool pattern)
+        tools.extend(BACKGROUND_TOOLS)
+
+        # 定时任务工具
+        cron_service = CronService(self.workspace / "data")
+        set_cron_service(cron_service)
+        tools.extend(CRON_TOOLS)
 
         return tools
 
