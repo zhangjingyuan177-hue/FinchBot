@@ -63,31 +63,19 @@
 ```mermaid
 flowchart TB
     subgraph L4["Extension Layer - Self-Extend Capabilities"]
-        direction LR
-        E1["MCP Auto-Config"]
-        E2["Skill Creation"]
-        E3["Dynamic Loading"]
+        E1["MCP Auto-Config"] ~~~ E2["Skill Creation"] ~~~ E3["Dynamic Loading"]
     end
 
     subgraph L3["Planning Layer - Self-Create Plans"]
-        direction LR
-        P1["Cron Tasks"]
-        P2["Heartbeat Monitor"]
-        P3["Auto Trigger"]
+        P1["Cron Tasks"] ~~~ P2["Heartbeat Monitor"] ~~~ P3["Auto Trigger"]
     end
 
     subgraph L2["Execution Layer - Self-Execute Tasks"]
-        direction LR
-        X1["Background Tasks"]
-        X2["Async Processing"]
-        X3["Non-Blocking"]
+        X1["Background Tasks"] ~~~ X2["Async Processing"] ~~~ X3["Non-Blocking"]
     end
 
     subgraph L1["Response Layer - Respond to Requests"]
-        direction LR
-        R1["Dialog System"]
-        R2["Tool Calls"]
-        R3["Context Memory"]
+        R1["Dialog System"] ~~~ R2["Tool Calls"] ~~~ R3["Context Memory"]
     end
 
     L4 --> L3 --> L2 --> L1
