@@ -18,7 +18,6 @@ from typing import TYPE_CHECKING, Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.messages.tool import ToolCall
 from langchain_core.tools import BaseTool
 from loguru import logger
 

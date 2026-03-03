@@ -73,7 +73,7 @@ def emit_error(error: str) -> None:
 
 
 async def stream_with_progress(
-    agent: "CompiledStateGraph",
+    agent: CompiledStateGraph,
     inputs: dict,
     config: dict,
     on_progress: Callable[[dict], None] | None = None,
@@ -132,7 +132,7 @@ async def stream_with_progress(
 
 
 async def stream_tokens_only(
-    agent: "CompiledStateGraph",
+    agent: CompiledStateGraph,
     inputs: dict,
     config: dict,
     on_token: Callable[[str], None] | None = None,

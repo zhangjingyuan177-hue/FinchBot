@@ -345,7 +345,9 @@ class CronService:
 
         if job.schedule.kind == "at":
             if job.delete_after_run:
-                self._store.jobs = [j for j in self._store.jobs if j.id != job.id]
+                store = self._load_store()
+                store.jobs = [j for j in store.jobs if j.id != job.id]
+                self._save_store()
             else:
                 job.enabled = False
                 job.state.next_run_at_ms = None

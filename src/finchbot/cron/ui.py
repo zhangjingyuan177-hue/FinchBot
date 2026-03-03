@@ -144,14 +144,14 @@ class CronTaskUI:
             next_run_str = self._format_next_run_ms(job.state.next_run_at_ms)
             status_str = t("cron.status.enabled") if job.enabled else t("cron.status.disabled")
 
-            style = "cyan bold" if is_selected else ("dim" if not job.enabled else None)
+            style = "cyan bold" if is_selected else ("dim" if not job.enabled else "")
 
             table.add_row(
-                Text(cursor, style=style),
-                Text(job.id, style=style),
-                Text(job.name[:25], style=style),
-                Text(self._format_schedule(job.schedule), style=style),
-                Text(next_run_str, style=style),
+                Text(cursor, style=style or ""),
+                Text(job.id, style=style or ""),
+                Text(job.name[:25], style=style or ""),
+                Text(self._format_schedule(job.schedule), style=style or ""),
+                Text(next_run_str, style=style or ""),
                 Text(status_str, style="green" if job.enabled else "red"),
             )
 

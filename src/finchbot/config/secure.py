@@ -20,15 +20,15 @@ class SecureConfig:
     - Secure storage file with restricted permissions
     """
 
-    def __init__(self, config_dir: Path = None):
-        self.config_dir = config_dir or Path.home() / ".finchbot"
+    def __init__(self, config_dir: Path | None = None):
+        self.config_dir: Path = config_dir or Path.home() / ".finchbot"
         self.config_dir.mkdir(parents=True, exist_ok=True)
         self.secrets_file = self.config_dir / "secrets.enc"
         self.key_file = self.config_dir / ".key"
         self._cipher: Fernet | None = None
         self._secrets: dict = {}
 
-    def _get_or_create_key(self, master_password: str = None) -> bytes:
+    def _get_or_create_key(self, master_password: str | None = None) -> bytes:
         """Get or create encryption key."""
         if self.key_file.exists():
             with open(self.key_file, "rb") as f:
@@ -59,7 +59,7 @@ class SecureConfig:
 
             return key
 
-    def initialize(self, master_password: str = None) -> None:
+    def initialize(self, master_password: str | None = None) -> None:
         """Initialize the secure config with optional master password."""
         key = self._get_or_create_key(master_password)
         self._cipher = Fernet(key)
@@ -164,6 +164,9 @@ def encrypt_value(value: str) -> str:
     if not secure_config._cipher:
         secure_config.initialize()
 
+    if secure_config._cipher is None:
+        raise RuntimeError("SecureConfig not initialized")
+
     encrypted = secure_config._cipher.encrypt(value.encode())
     return base64.urlsafe_b64encode(encrypted).decode()
 
@@ -172,6 +175,9 @@ def decrypt_value(encrypted_value: str) -> str:
     """Decrypt a single value using the global secure config."""
     if not secure_config._cipher:
         secure_config.initialize()
+
+    if secure_config._cipher is None:
+        raise RuntimeError("SecureConfig not initialized")
 
     encrypted = base64.urlsafe_b64decode(encrypted_value.encode())
     decrypted = secure_config._cipher.decrypt(encrypted)

@@ -126,53 +126,52 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-    classDef input fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
-    classDef core fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef task fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
-    classDef infra fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-
     subgraph Input [输入层]
         direction LR
-        CLI[CLI 界面<br/>Rich 美化]:::input
-        LB[LangBot<br/>12+ 平台]:::input
-        Webhook[Webhook<br/>FastAPI]:::input
+        CLI[CLI 界面<br/>Rich 美化]
+        LB[LangBot<br/>12+ 平台]
+        Webhook[Webhook<br/>FastAPI]
     end
 
     subgraph Core [核心层 - Agent 决策引擎]
         direction TB
-        Agent[LangGraph Agent<br/>状态管理 · 循环控制]:::core
+        Agent[LangGraph Agent<br/>状态管理 · 循环控制]
         subgraph CoreModules [核心组件]
             direction LR
-            Context[ContextBuilder<br/>上下文构建]:::core
-            Streaming[ProgressReporter<br/>流式输出]:::core
+            Context[ContextBuilder<br/>上下文构建]
+            Streaming[ProgressReporter<br/>流式输出]
         end
     end
 
     subgraph Capabilities [能力层 - 三层扩展]
         direction LR
-        BuiltIn[内置工具<br/>24 个开箱即用]:::core
-        MCP[MCP 扩展<br/>动态配置]:::core
-        Skills[技能系统<br/>自主创建]:::core
+        BuiltIn[内置工具<br/>19 个开箱即用]
+        MCP[MCP 扩展<br/>动态配置]
+        Skills[技能系统<br/>自主创建]
     end
 
     subgraph Task [任务层 - 三层调度]
         direction LR
-        BG[后台任务<br/>异步执行]:::task
-        Cron[定时任务<br/>at/every/cron]:::task
-        Heart[心跳监控<br/>自主唤醒]:::task
+        BG[后台任务<br/>异步执行]
+        Cron[定时任务<br/>at/every/cron]
+        Heart[心跳监控<br/>自主唤醒]
+    end
+
+    subgraph Service [服务层 - 统一管理]
+        SM[ServiceManager<br/>协调所有后台服务]
     end
 
     subgraph Memory [记忆层 - 双层存储]
         direction LR
-        SQLite[(SQLite<br/>结构化存储)]:::infra
-        Vector[(VectorStore<br/>向量检索)]:::infra
+        SQLite[(SQLite<br/>结构化存储)]
+        Vector[(VectorStore<br/>向量检索)]
     end
 
     subgraph LLM [模型层 - 多提供商]
         direction LR
-        OpenAI[OpenAI<br/>GPT-4o]:::infra
-        Anthropic[Anthropic<br/>Claude]:::infra
-        DeepSeek[DeepSeek<br/>国产]:::infra
+        OpenAI[OpenAI<br/>GPT-4o]
+        Anthropic[Anthropic<br/>Claude]
+        DeepSeek[DeepSeek<br/>国产]
     end
 
     CLI --> Agent
@@ -185,6 +184,9 @@ flowchart TB
     Agent --> Task
     Agent <--> Memory
     Agent --> LLM
+
+    Task --> Service
+    Service --> SM
 
     Context --> Memory
     Memory --> SQLite
@@ -263,38 +265,33 @@ flowchart LR
 
 | 层级 | 方式 | 自主性 | 说明 |
 |:---:|:---|:---:|:---|
-| 第一层 | 内置工具 | 开箱即用 | 24 个内置工具，无需配置即可使用 |
+| 第一层 | 内置工具 | 开箱即用 | 19 个内置工具，无需配置即可使用 |
 | 第二层 | MCP 配置 | Agent 自主配置 | 通过 `configure_mcp` 动态添加外部能力 |
 | 第三层 | 技能创建 | Agent 自主创建 | 通过 `skill-creator` 创建新技能 |
 
 #### 内置工具
 
-|        类别        | 工具              | 功能                        |
-| :----------------: | :---------------- | :-------------------------- |
-| **文件操作** | `read_file`     | 读取本地文件                |
-|                    | `write_file`    | 写入本地文件                |
-|                    | `edit_file`     | 编辑文件内容                |
-|                    | `list_dir`      | 列出目录内容                |
-| **网络能力** | `web_search`    | 联网搜索 (Tavily/Brave/DDG) |
-|                    | `web_extract`   | 网页内容提取                |
-| **记忆管理** | `remember`      | 主动存储记忆                |
-|                    | `recall`        | 检索记忆                    |
-|                    | `forget`        | 删除/归档记忆               |
-| **系统控制** | `exec`          | 安全执行 Shell 命令         |
-|                    | `session_title` | 管理会话标题                |
-| **配置管理** | `configure_mcp` | 动态配置 MCP 服务器（支持启用/禁用/添加/更新/删除/列出） |
-|                    | `refresh_capabilities` | 刷新能力描述文件   |
-|                    | `get_capabilities` | 获取当前能力描述        |
-|                    | `get_mcp_config_path` | 获取 MCP 配置路径    |
-| **后台任务** | `start_background_task` | 启动后台任务       |
-|                    | `check_task_status` | 检查任务状态         |
-|                    | `get_task_result` | 获取任务结果           |
-|                    | `cancel_task`   | 取消任务                    |
-| **定时任务** | `create_cron`   | 创建定时任务                |
-|                    | `list_crons`    | 列出所有定时任务            |
-|                    | `delete_cron`   | 删除定时任务                |
-|                    | `toggle_cron`   | 启用/禁用定时任务           |
-|                    | `run_cron_now`  | 立即执行定时任务            |
+| 类别 | 工具 | 功能 |
+| :--- | :--- | :--- |
+| **文件操作** | `read_file` | 读取本地文件 |
+| | `write_file` | 写入本地文件 |
+| | `edit_file` | 编辑文件内容 |
+| | `list_dir` | 列出目录内容 |
+| **网络能力** | `web_search` | 联网搜索 (Tavily/Brave/DDG) |
+| | `web_extract` | 网页内容提取 |
+| **记忆管理** | `remember` | 主动存储记忆 |
+| | `recall` | 检索记忆 |
+| | `forget` | 删除/归档记忆 |
+| **系统控制** | `exec` | 安全执行 Shell 命令 |
+| **配置管理** | `configure_mcp` | 动态配置 MCP 服务器 |
+| | `refresh_capabilities` | 刷新能力描述文件 |
+| **后台任务** | `start_background_task` | 启动后台任务 |
+| | `check_task_status` | 检查任务状态 |
+| | `get_task_result` | 获取任务结果 |
+| | `cancel_task` | 取消任务 |
+| **定时任务** | `create_cron` | 创建定时任务 |
+| | `list_crons` | 列出所有定时任务 |
+| | `delete_cron` | 删除定时任务 |
 
 ##### 网页搜索
 
@@ -302,19 +299,15 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    classDef check fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef engine fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef fallback fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-
-    Start[网页搜索请求]:::check
+    Start[网页搜索请求]
     
-    Check1{TAVILY_API_KEY<br/>已设置?}:::check
-    Tavily[Tavily<br/>质量最佳<br/>AI 优化]:::engine
+    Check1{TAVILY_API_KEY<br/>已设置?}
+    Tavily[Tavily<br/>质量最佳<br/>AI 优化]
     
-    Check2{BRAVE_API_KEY<br/>已设置?}:::check
-    Brave[Brave Search<br/>隐私友好<br/>免费额度大]:::engine
+    Check2{BRAVE_API_KEY<br/>已设置?}
+    Brave[Brave Search<br/>隐私友好<br/>免费额度大]
         
-    DDG[DuckDuckGo<br/>零配置<br/>始终可用]:::fallback
+    DDG[DuckDuckGo<br/>零配置<br/>始终可用]
 
     Start --> Check1
     Check1 -->|是| Tavily
@@ -323,21 +316,11 @@ flowchart TD
     Check2 -->|否| DDG
 ```
 
-| 优先级 |          引擎          | API Key | 特点                             |
-| :----: | :--------------------: | :-----: | :------------------------------- |
-|   1   |    **Tavily**    |  需要  | 质量最佳，专为 AI 优化，深度搜索 |
-|   2   | **Brave Search** |  需要  | 免费额度大，隐私友好             |
-|   3   |  **DuckDuckGo**  |  无需  | 始终可用，零配置                 |
-
-##### 会话管理
-
-`session_title` 工具让会话命名变得智能：
-
-|       操作方式       | 说明                                   | 示例                   |
-| :------------------: | :------------------------------------- | :--------------------- |
-|  **自动生成**  | 对话 2-3 轮后，AI 自动根据内容生成标题 | "Python 异步编程讨论"  |
-| **Agent 修改** | 告诉 Agent "把会话标题改成 XXX"        | Agent 调用工具自动修改 |
-| **手动重命名** | 在会话管理器中按 `r` 键重命名        | 用户手动输入新标题     |
+| 优先级 | 引擎 | API Key | 特点 |
+| :----: | :--- | :-----: | :--- |
+| 1 | **Tavily** | 需要 | 质量最佳，专为 AI 优化，深度搜索 |
+| 2 | **Brave Search** | 需要 | 免费额度大，隐私友好 |
+| 3 | **DuckDuckGo** | 无需 | 始终可用，零配置 |
 
 #### MCP 配置
 
@@ -356,11 +339,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    classDef config fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef system fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef prompt fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-
-    MCP[MCP 配置<br/>configure_mcp]:::config --> Refresh[refresh_capabilities]:::system --> Builder[CapabilitiesBuilder<br/>重新生成]:::system --> Write[CAPABILITIES.md]:::prompt --> Load[下次对话<br/>自动加载]:::prompt
+    MCP[MCP 配置<br/>configure_mcp] --> Refresh[refresh_capabilities] --> Builder[CapabilitiesBuilder<br/>重新生成] --> Write[CAPABILITIES.md] --> Load[下次对话<br/>自动加载]
 ```
 
 #### 技能创建
