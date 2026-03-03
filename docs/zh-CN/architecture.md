@@ -755,7 +755,6 @@ flowchart TD
 #### 支持的语言
 
 - `zh-CN`：简体中文
-- `zh-HK`：繁体中文
 - `en-US`：英语
 
 #### 语言降级链
@@ -763,7 +762,6 @@ flowchart TD
 系统实现了智能降级机制：
 ```
 zh-CN → zh → en-US
-zh-HK → zh → en-US
 en-US →（无降级）
 ```
 

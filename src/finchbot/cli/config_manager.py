@@ -735,7 +735,6 @@ def _configure_language(config_obj: Config) -> None:
     languages = [
         {"name": "English (en-US)", "value": "en-US"},
         {"name": "简体中文 (zh-CN)", "value": "zh-CN"},
-        {"name": "繁體中文 (zh-HK)", "value": "zh-HK"},
     ]
 
     initial_idx = 0

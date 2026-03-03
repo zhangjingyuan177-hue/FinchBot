@@ -22,7 +22,7 @@ The user configuration file is located at `~/.finchbot/config.json` by default.
 
 | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `language` | string | `"en-US"` | Interface and prompt language. Supports `zh-CN`, `zh-HK`, `en-US`. |
+| `language` | string | `"en-US"` | Interface and prompt language. Supports `zh-CN`, `en-US`. |
 | `language_set_by_user` | boolean | `false` | Whether language was manually set by user (for auto-detection). |
 | `default_model` | string | `"gpt-5"` | Default LLM model name to use. |
 | `default_model_set_by_user` | boolean | `false` | Whether default model was manually set by user. |

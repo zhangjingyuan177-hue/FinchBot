@@ -615,7 +615,6 @@ text = i18n.t("cli.chat.session", session_id="abc123")
 | 语言代码 | 语言名称 |
 |:---|:---|
 | `zh-CN` | 简体中文 |
-| `zh-HK` | 繁体中文 |
 | `en-US` | 英语 |
 
 ---

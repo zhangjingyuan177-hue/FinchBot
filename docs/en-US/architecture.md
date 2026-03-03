@@ -741,7 +741,6 @@ flowchart TD
 #### Supported Languages
 
 - `zh-CN`: Simplified Chinese
-- `zh-HK`: Traditional Chinese
 - `en-US`: English
 
 #### Language Fallback Chain
@@ -749,7 +748,6 @@ flowchart TD
 The system implements a smart fallback mechanism:
 ```
 zh-CN → zh → en-US
-zh-HK → zh → en-US
 en-US → (no fallback)
 ```
 

@@ -611,7 +611,6 @@ text = i18n.t("cli.chat.session", session_id="abc123")
 | Language Code | Language Name |
 |:---|:---|
 | `zh-CN` | Simplified Chinese |
-| `zh-HK` | Traditional Chinese |
 | `en-US` | English |
 
 ---
