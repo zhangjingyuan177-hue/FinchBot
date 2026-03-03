@@ -159,11 +159,13 @@ app.add_typer(cron_app, name="cron")
 def cron_callback(ctx: typer.Context) -> None:
     """定时任务管理（交互式界面）."""
     if ctx.invoked_subcommand is None:
-        from finchbot.cron.selector import CronSelector
+        from finchbot.cron.service import CronService
+        from finchbot.cron.ui import CronTaskUI
 
         ws_path = get_default_workspace()
-        selector = CronSelector(ws_path)
-        selector.interactive_manage()
+        cron_service = CronService(ws_path / "data")
+        ui = CronTaskUI(cron_service, ws_path)
+        ui.interactive_manage()
 
 
 channel_app = typer.Typer(help=t("cli.commands.channel_help"))

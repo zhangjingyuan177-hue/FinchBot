@@ -290,7 +290,10 @@ def get_cron_status(cron_id: str) -> str:
         if job.schedule.tz:
             lines.append(f"时区: {job.schedule.tz}")
     elif job.schedule.kind == "every":
-        lines.append(f"间隔: {job.schedule.every_ms // 1000} 秒")
+        if job.schedule.every_ms is not None:
+            lines.append(f"间隔: {job.schedule.every_ms // 1000} 秒")
+        else:
+            lines.append("间隔: 未设置")
     elif job.schedule.kind == "at":
         lines.append(f"执行时间: {format_time(job.schedule.at_ms)}")
 

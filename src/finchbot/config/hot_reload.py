@@ -1,11 +1,24 @@
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
+
+if TYPE_CHECKING:
+    from watchdog.events import FileSystemEvent
+    from watchdog.observers import Observer
+
+try:
+    from watchdog.events import FileSystemEvent, FileSystemEventHandler
+    from watchdog.observers import Observer
+
+    WATCHDOG_AVAILABLE = True
+except ImportError:
+    WATCHDOG_AVAILABLE = False
+    FileSystemEvent = None  # type: ignore
+    FileSystemEventHandler = object  # type: ignore
+    Observer = None  # type: ignore
 
 
 class ConfigHotReloader:
@@ -33,6 +46,10 @@ class ConfigHotReloader:
         if self._running:
             return
 
+        if not WATCHDOG_AVAILABLE:
+            logger.warning("watchdog not installed, hot reload disabled")
+            return
+
         if not self.config_path.exists():
             logger.warning(f"Config file not found: {self.config_path}")
             return
@@ -40,9 +57,9 @@ class ConfigHotReloader:
         self._observer = Observer()
         handler = _ConfigEventHandler(self._on_file_change)
 
-        self._observer.schedule(handler, str(self.config_path.parent), recursive=False)
-
-        self._observer.start()
+        if self._observer:
+            self._observer.schedule(handler, str(self.config_path.parent), recursive=False)
+            self._observer.start()
         self._running = True
         logger.info(f"Config hot reload started for {self.config_path}")
 

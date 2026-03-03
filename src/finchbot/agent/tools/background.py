@@ -32,6 +32,7 @@ class JobStatus(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    task_id: str | None = None
 
 
 class JobManager:
@@ -160,6 +161,40 @@ class JobManager:
 
         return len(to_remove)
 
+    def clear_all(self) -> int:
+        """清理所有任务.
+
+        Returns:
+            清理的任务数量
+        """
+        count = len(self._jobs)
+        self._jobs.clear()
+        return count
+
+    def associate_job(self, job_id: str, task_id: str) -> None:
+        """关联任务 ID 和子代理 ID.
+
+        Args:
+            job_id: 任务 ID
+            task_id: 子代理 ID
+        """
+        if job_id in self._jobs:
+            self._jobs[job_id].task_id = task_id
+
+    def get_job_by_task(self, task_id: str) -> JobStatus | None:
+        """通过子代理 ID 获取任务状态.
+
+        Args:
+            task_id: 子代理 ID
+
+        Returns:
+            任务状态，不存在则返回 None
+        """
+        for job in self._jobs.values():
+            if job.task_id == task_id:
+                return job
+        return None
+
 
 def get_job_manager() -> JobManager:
     """获取任务管理器单例.
@@ -255,7 +290,7 @@ async def start_background_task(
     except Exception:
         pass
 
-    task = asyncio.create_task(
+    asyncio.create_task(
         _execute_background_task(job_id, task_description, label),
     )
 

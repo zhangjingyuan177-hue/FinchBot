@@ -10,7 +10,7 @@ import os
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import typer
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
@@ -515,7 +515,6 @@ async def _stream_ai_response(
     Returns:
         完整的消息列表.
     """
-    from langchain_core.messages import HumanMessage
 
     input_data = {"messages": [HumanMessage(content=message)]}
     full_content = ""
@@ -762,21 +761,21 @@ async def _run_chat_session_async(
 
     config = {"configurable": {"thread_id": session_id}}
 
-    async def deliver_message(channel: str, target_id: str, message: str) -> None:
+    async def deliver_message(channel: str, to: str, message: str) -> None:
         """消息投递回调.
 
         将定时任务或子代理的结果注入到当前会话。
 
         Args:
             channel: 渠道标识
-            target_id: 目标 ID
+            to: 目标 ID
             message: 消息内容
         """
         try:
             current_state = await agent.aget_state(config)
             messages = list(current_state.values.get("messages", []))
             messages.append(SystemMessage(content=f"[定时任务通知]\n{message}"))
-            agent.update_state(config, {"messages": messages})
+            await agent.aupdate_state(config, {"messages": messages})
             console.print(
                 Panel(
                     message,
@@ -800,7 +799,7 @@ async def _run_chat_session_async(
             current_state = await agent.aget_state(config)
             messages = list(current_state.values.get("messages", []))
             messages.append(SystemMessage(content=f"[后台任务完成: {label}]\n{result}"))
-            agent.update_state(config, {"messages": messages})
+            await agent.aupdate_state(config, {"messages": messages})
             console.print(
                 Panel(
                     result[:500] + ("..." if len(result) > 500 else ""),
@@ -812,20 +811,37 @@ async def _run_chat_session_async(
         except Exception as e:
             logger.error(f"Failed to notify result: {e}")
 
-    from finchbot.agent.tools.cron import get_cron_service, set_cron_service
-    from finchbot.cron.service import CronService
+    from finchbot.services.config import ServiceConfig
+    from finchbot.services.manager import ServiceManager
+    from finchbot.tools.core import ToolRegistry
 
-    cron_service = CronService(
-        ws_path / "data",
-        on_deliver=deliver_message,
+    tool_registry = ToolRegistry.get_instance()
+    if not tool_registry:
+        tool_registry = ToolRegistry(ws_path, config_obj)
+        ToolRegistry.set_instance(tool_registry)
+
+    service_config = ServiceConfig(
+        cron_enabled=True,
+        heartbeat_enabled=False,
     )
-    set_cron_service(cron_service)
-    await cron_service.start()
-    logger.debug(f"CronService started for workspace: {ws_path}")
 
+    service_manager = ServiceManager(
+        workspace=ws_path,
+        config=config_obj,
+        registry=tool_registry,
+        model=chat_model,
+        service_config=service_config,
+    )
+    ServiceManager.set_instance(service_manager)
+
+    service_manager._on_cron_deliver = deliver_message
     if subagent_manager:
         subagent_manager.on_notify = notify_result
-        logger.debug("SubagentManager on_notify callback set")
+        service_manager._services["subagent_manager"] = subagent_manager
+        logger.debug("SubagentManager integrated with ServiceManager")
+
+    await service_manager.start_all()
+    logger.debug(f"ServiceManager started for workspace: {ws_path}")
 
     web_enabled = any(t.name == "web_search" for t in tools)
     web_status = (
@@ -942,7 +958,7 @@ async def _run_chat_session_async(
                             session_store.create_session(new_sess, title=f"Fork from {session_id}")
 
                         # 更新 Agent 状态到新会话
-                        agent.update_state(new_config, {"messages": rolled_back})
+                        await agent.aupdate_state(new_config, {"messages": rolled_back})
 
                         # 切换当前会话 ID
                         session_id = new_sess
@@ -956,7 +972,7 @@ async def _run_chat_session_async(
                             f"[green]{t('cli.rollback.create_success').format(new_sess, msg_count)}[/green]"
                         )
                     else:
-                        agent.update_state(config, {"messages": rolled_back})
+                        await agent.aupdate_state(config, {"messages": rolled_back})
                         console.print(
                             f"[green]{t('cli.rollback.rollback_success').format(len(rolled_back))}[/green]"
                         )
@@ -993,7 +1009,7 @@ async def _run_chat_session_async(
 
                     new_count = len(messages) - n
                     rolled_back = messages[:new_count]
-                    agent.update_state(config, {"messages": rolled_back})
+                    await agent.aupdate_state(config, {"messages": rolled_back})
 
                     console.print(f"[green]{t('cli.rollback.remove_success').format(n)}[/green]")
                     console.print(
@@ -1040,12 +1056,8 @@ async def _run_chat_session_async(
             console.print(f"[dim]{t('cli.chat.check_logs')}[/dim]")
 
     # 清理资源
-    await cron_service.stop()
-    logger.debug("CronService stopped")
-
-    if subagent_manager:
-        cancelled = await subagent_manager.cancel_by_session(f"cli:{session_id}")
-        logger.debug(f"Cancelled {cancelled} subagent tasks for session {session_id}")
+    await service_manager.stop_all()
+    logger.debug("ServiceManager stopped all services")
 
     if hasattr(checkpointer, "conn") and checkpointer.conn:
         try:

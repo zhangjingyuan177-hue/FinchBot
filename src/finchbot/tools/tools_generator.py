@@ -11,9 +11,26 @@ from pathlib import Path
 
 from langchain_core.tools import BaseTool
 
-from finchbot.i18n import t
-from finchbot.tools.registry import get_global_registry
+from finchbot.tools.core import get_global_registry
 from finchbot.workspace import get_generated_path
+
+# 硬编码文本
+TITLE = "# 可用工具"
+NO_TOOLS = "暂无可用工具"
+NO_DESCRIPTION = "无描述"
+
+# 分类名称
+CATEGORY_NAMES = {
+    "file_ops": "文件操作",
+    "sys_cmd": "系统命令",
+    "net_tools": "网络工具",
+    "mem_mgmt": "记忆管理",
+    "session_mgmt": "会话管理",
+    "background": "后台任务",
+    "cron": "定时任务",
+    "mcp": "MCP 工具",
+    "others": "其他",
+}
 
 
 class ToolsGenerator:
@@ -46,7 +63,7 @@ class ToolsGenerator:
         Returns:
             TOOLS.md 内容字符串。
         """
-        lines = [f"# {t('agent.available_tools')}\n"]
+        lines = [f"{TITLE}\n"]
 
         # 获取工具列表
         if self._external_tools is not None:
@@ -56,7 +73,7 @@ class ToolsGenerator:
             tools = [t for t in tools if t is not None]
 
         if not tools:
-            lines.append(t("agent.no_tools_available"))
+            lines.append(NO_TOOLS)
             return "\n".join(lines)
 
         # 按类别分组工具
@@ -128,22 +145,12 @@ class ToolsGenerator:
         Returns:
             按类别分组的工具字典。
         """
-        tools_by_category = {
-            t("tools.categories.file_ops"): [],
-            t("tools.categories.sys_cmd"): [],
-            t("tools.categories.net_tools"): [],
-            t("tools.categories.mem_mgmt"): [],
-            t("tools.categories.session_mgmt"): [],
-            t("tools.categories.background"): [],
-            t("tools.categories.cron"): [],
-            t("tools.categories.mcp"): [],
-            t("tools.categories.others"): [],
-        }
+        tools_by_category = {name: [] for name in CATEGORY_NAMES.values()}
 
         for tool in tools:
             # 先检查是否是 MCP 工具
             if self._is_mcp_tool(tool):
-                tools_by_category[t("tools.categories.mcp")].append(tool)
+                tools_by_category[CATEGORY_NAMES["mcp"]].append(tool)
             else:
                 # 根据工具名称或描述确定类别
                 category = self._determine_category(tool)
@@ -192,35 +199,35 @@ class ToolsGenerator:
         if any(keyword in tool_name for keyword in file_keywords) or any(
             keyword in tool_desc for keyword in file_keywords
         ):
-            return t("tools.categories.file_ops")
+            return CATEGORY_NAMES["file_ops"]
 
         # 系统命令工具
         sys_keywords = ["exec", "shell", "command", "run", "execute"]
         if any(keyword in tool_name for keyword in sys_keywords) or any(
             keyword in tool_desc for keyword in sys_keywords
         ):
-            return t("tools.categories.sys_cmd")
+            return CATEGORY_NAMES["sys_cmd"]
 
         # 网络工具
         web_keywords = ["web", "search", "fetch", "extract", "http", "url"]
         if any(keyword in tool_name for keyword in web_keywords) or any(
             keyword in tool_desc for keyword in web_keywords
         ):
-            return t("tools.categories.net_tools")
+            return CATEGORY_NAMES["net_tools"]
 
         # 记忆管理工具
         memory_keywords = ["memory", "remember", "recall", "forget", "store"]
         if any(keyword in tool_name for keyword in memory_keywords) or any(
             keyword in tool_desc for keyword in memory_keywords
         ):
-            return t("tools.categories.mem_mgmt")
+            return CATEGORY_NAMES["mem_mgmt"]
 
         # 会话管理工具
         session_keywords = ["session", "title", "chat", "conversation"]
         if any(keyword in tool_name for keyword in session_keywords) or any(
             keyword in tool_desc for keyword in session_keywords
         ):
-            return t("tools.categories.session_mgmt")
+            return CATEGORY_NAMES["session_mgmt"]
 
         # 后台任务工具
         background_keywords = [
@@ -235,16 +242,16 @@ class ToolsGenerator:
         if any(keyword in tool_name for keyword in background_keywords) or any(
             keyword in tool_desc for keyword in background_keywords
         ):
-            return t("tools.categories.background")
+            return CATEGORY_NAMES["background"]
 
         # 定时任务工具
         cron_keywords = ["cron", "schedule", "scheduled", "timer"]
         if any(keyword in tool_name for keyword in cron_keywords) or any(
             keyword in tool_desc for keyword in cron_keywords
         ):
-            return t("tools.categories.cron")
+            return CATEGORY_NAMES["cron"]
 
-        return t("tools.categories.others")
+        return CATEGORY_NAMES["others"]
 
     def _get_tool_description(self, tool: BaseTool) -> str:
         """获取工具描述.
@@ -260,7 +267,7 @@ class ToolsGenerator:
         if not desc:
             desc = getattr(tool, "_description", "")
         if not desc:
-            desc = t("tools.categories.no_description")
+            desc = NO_DESCRIPTION
 
         # 如果是 MCP 工具，添加来源标识
         if self._is_mcp_tool(tool):

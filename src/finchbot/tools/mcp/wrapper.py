@@ -6,13 +6,10 @@
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from langchain_core.tools import BaseTool
 from loguru import logger
-
-if TYPE_CHECKING:
-    pass
 
 
 class MCPToolWithTimeout(BaseTool):
@@ -29,6 +26,7 @@ class MCPToolWithTimeout(BaseTool):
     _wrapped_tool: BaseTool
     _timeout: int
     _server_name: str
+    _mcp_server_name: str
 
     def __init__(self, tool: BaseTool, server_name: str, timeout: int = 30) -> None:
         """初始化包装器.
@@ -45,6 +43,7 @@ class MCPToolWithTimeout(BaseTool):
         self._wrapped_tool = tool
         self._timeout = timeout
         self._server_name = server_name
+        self._mcp_server_name = server_name
 
     @property
     def args_schema(self) -> Any:
@@ -53,7 +52,7 @@ class MCPToolWithTimeout(BaseTool):
 
     def _run(self, *args: Any, **kwargs: Any) -> str:
         """同步执行（不支持，返回提示）."""
-        return "MCP tools only support async execution. Use ainvoke instead."
+        return "MCP 工具仅支持异步执行，请使用 ainvoke。"
 
     async def _arun(self, *args: Any, **kwargs: Any) -> str:
         """异步执行，带超时控制.
@@ -68,11 +67,19 @@ class MCPToolWithTimeout(BaseTool):
             )
             return str(result)
         except TimeoutError:
-            logger.warning(f"MCP tool '{self.name}' timed out after {self._timeout}s")
-            return f"(MCP tool call timed out after {self._timeout}s)"
+            logger.warning(f"MCP 工具 '{self.name}' 超时（{self._timeout}s）")
+            return f"(MCP 工具调用超时，已等待 {self._timeout}s)"
         except Exception as e:
-            logger.error(f"MCP tool '{self.name}' error: {e}")
-            return f"MCP tool error: {e}"
+            logger.error(f"MCP 工具 '{self.name}' 错误: {e}")
+            return f"MCP 工具错误: {e}"
+
+    def get_server_name(self) -> str:
+        """获取 MCP 服务器名称.
+
+        Returns:
+            服务器名称
+        """
+        return self._server_name
 
 
 def wrap_mcp_tools_with_timeout(

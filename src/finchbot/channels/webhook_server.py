@@ -126,8 +126,6 @@ async def process_message_with_agent(
     Returns:
         AI 响应文本
     """
-    from functools import partial
-
     from finchbot.agent import create_finch_agent, get_default_workspace
     from finchbot.cli.chat_session import _get_llm_config
     from finchbot.providers.factory import create_chat_model

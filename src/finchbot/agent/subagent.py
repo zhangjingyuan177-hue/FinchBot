@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages.tool import ToolCall
 from langchain_core.tools import BaseTool
 from loguru import logger
 
@@ -142,20 +143,24 @@ class SubagentManager:
                 HumanMessage(content=task),
             ]
 
+            # 预先绑定工具，避免在 ainvoke 中传递工具列表导致序列化问题
+            # 使用 bind_tools 将工具绑定到模型，而不是在每次调用时传递
+            bound_model = self.model.bind_tools(self.tools) if self.tools else self.model
+
             iteration = 0
             final_result: str | None = None
 
             while iteration < self.max_iterations:
                 iteration += 1
 
-                response = await self.model.ainvoke(messages, tools=self.tools)
+                response = await bound_model.ainvoke(messages)
 
                 if isinstance(response, AIMessage):
                     messages.append(response)
 
                     if response.tool_calls:
                         for tool_call in response.tool_calls:
-                            result = await self._execute_tool(tool_call)
+                            result = await self._execute_tool(dict(tool_call))
                             messages.append(
                                 ToolMessage(
                                     content=result,
@@ -163,7 +168,8 @@ class SubagentManager:
                                 )
                             )
                     else:
-                        final_result = response.content or ""
+                        content = response.content
+                        final_result = str(content) if content else ""
                         break
                 else:
                     final_result = (
@@ -298,8 +304,8 @@ Stay focused on the assigned task. Your final response will be reported back to 
             if tid in self._running_tasks and not self._running_tasks[tid].done()
         ]
 
-        for t in tasks:
-            t.cancel()
+        for task in tasks:
+            task.cancel()
 
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -348,3 +354,35 @@ Stay focused on the assigned task. Your final response will be reported back to 
             任务 ID 列表
         """
         return list(self._session_tasks.get(session_key, set()))
+
+    def update_tools(self, new_tools: list[BaseTool]) -> None:
+        """更新工具列表.
+
+        当 MCP 工具热更新时调用。
+        新创建的子代理将使用新的工具列表。
+
+        Args:
+            new_tools: 新的工具列表
+        """
+        self.tools = new_tools
+        logger.info(f"SubagentManager 工具已更新: {len(new_tools)} 个工具")
+
+        for task_id, task in self._running_tasks.items():
+            if not task.done():
+                logger.debug(f"子代理 {task_id} 将在下次迭代使用新工具")
+
+    async def cancel_all(self) -> int:
+        """取消所有运行中的任务.
+
+        Returns:
+            取消的任务数量
+        """
+        tasks = [task for task in self._running_tasks.values() if not task.done()]
+
+        for task in tasks:
+            task.cancel()
+
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+        return len(tasks)

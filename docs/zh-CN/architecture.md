@@ -108,30 +108,20 @@ flowchart TB
 ```
 finchbot/
 ├── agent/              # Agent 核心
-│   ├── core.py        # Agent 创建与运行（异步优化）
-│   ├── factory.py     # AgentFactory（并发线程池）
+│   ├── core.py        # Agent 创建与运行
+│   ├── factory.py     # AgentFactory
 │   ├── context.py     # ContextBuilder 提示词组装
 │   ├── capabilities.py # CapabilitiesBuilder 能力构建
+│   ├── capabilities_manager.py
 │   ├── skills.py      # SkillsLoader Markdown 技能加载
-│   └── streaming.py   # ProgressReporter 进度流输出
-├── background/         # 后台任务系统
-│   ├── __init__.py
-│   ├── store.py       # JobStore 任务存储
-│   └── tools.py       # 后台任务工具
-├── cron/               # 定时任务系统
-│   ├── __init__.py
-│   ├── service.py     # CronService 调度服务
-│   ├── selector.py    # CronSelector 交互式 UI
-│   └── tools.py       # 定时任务工具
-├── heartbeat/          # 心跳服务
-│   ├── __init__.py
-│   └── service.py     # HeartbeatService 后台服务
+│   ├── streaming.py   # ProgressReporter 进度流输出
+│   ├── subagent.py    # SubagentManager 子代理管理
+│   └── tools/         # Agent 专用工具
+│       ├── background.py  # 后台任务工具
+│       └── cron.py        # 定时任务工具
 ├── channels/           # 多平台消息（通过 LangBot）
-│   ├── base.py        # BaseChannel 抽象基类
-│   ├── bus.py         # MessageBus 异步路由器
-│   ├── manager.py     # ChannelManager 协调器
-│   ├── schema.py      # 消息模型
-│   ├── langbot_integration.py  # LangBot 集成指南
+│   ├── langbot.py     # LangBot 集成
+│   ├── selector.py    # ChannelSelector
 │   └── webhook_server.py  # Webhook 服务器（FastAPI）
 ├── cli/                # 命令行界面
 │   ├── chat_session.py # 异步会话管理
@@ -141,8 +131,15 @@ finchbot/
 ├── config/             # 配置管理
 │   ├── loader.py
 │   ├── schema.py      # 包含 MCPConfig, ChannelsConfig
+│   ├── hot_reload.py  # 热重载
 │   └── utils.py
 ├── constants.py        # 统一常量定义
+├── cron/               # 定时任务系统
+│   ├── service.py     # CronService 调度服务
+│   ├── types.py       # 数据类定义
+│   └── ui.py          # CronSelector 交互式 UI
+├── heartbeat/          # 心跳服务
+│   └── service.py     # HeartbeatService 后台服务
 ├── i18n/               # 国际化
 │   ├── loader.py      # 语言加载器
 │   └── locales/
@@ -154,6 +151,9 @@ finchbot/
 │   └── vector_sync.py
 ├── providers/          # LLM 提供商
 │   └── factory.py
+├── services/           # 服务管理
+│   ├── manager.py     # ServiceManager 统一管理
+│   └── config.py      # ServiceConfig
 ├── sessions/           # 会话管理
 │   ├── metadata.py
 │   ├── selector.py
@@ -161,21 +161,34 @@ finchbot/
 ├── skills/             # 技能系统
 │   ├── skill-creator/
 │   ├── summarize/
+│   ├── task-management/
 │   └── weather/
 ├── tools/              # 工具系统
-│   ├── base.py
-│   ├── factory.py     # ToolFactory（MCP 工具通过 langchain-mcp-adapters）
-│   ├── registry.py
-│   ├── config_tools.py # 配置工具（configure_mcp 等）
-│   ├── tools_generator.py # 工具文档生成器
-│   ├── filesystem.py
-│   ├── memory.py
-│   ├── shell.py
-│   ├── web.py
-│   ├── session_title.py
-│   ├── background.py  # 后台任务工具
-│   ├── cron.py        # 定时任务工具
-│   └── search/
+│   ├── core.py        # ToolRegistry 单例注册表
+│   ├── decorator.py   # @tool 装饰器
+│   ├── middleware.py  # AgentMiddleware 中间件
+│   ├── discovery.py   # 工具发现
+│   ├── cache.py       # DynamicToolCache
+│   ├── watcher.py     # 文件监控
+│   ├── tools_generator.py  # 工具文档生成器
+│   ├── builtin/       # 内置工具
+│   │   ├── file.py    # 文件操作
+│   │   ├── memory.py  # 记忆管理
+│   │   ├── shell.py   # Shell 执行
+│   │   ├── web.py     # 网络工具
+│   │   ├── config.py  # 配置工具
+│   │   ├── background.py  # 后台任务
+│   │   ├── schedule.py    # 定时任务
+│   │   └── session.py     # 会话管理
+│   ├── mcp/           # MCP 工具
+│   │   ├── connector.py   # MCPConnector
+│   │   ├── wrapper.py     # MCPToolWithTimeout
+│   │   └── hot_update.py  # 热更新管理
+│   └── search/        # 搜索工具
+│       ├── manager.py     # SearchManager
+│       ├── tavily.py      # Tavily
+│       ├── brave.py       # Brave
+│       └── ddg.py         # DuckDuckGo
 └── utils/              # 工具函数
     ├── cache.py
     ├── logger.py
@@ -429,64 +442,97 @@ class MemoryManager:
 
 **实现位置**：`src/finchbot/tools/`
 
-#### 注册机制与工厂模式
+#### 装饰器注册机制
 
-* **ToolFactory（`factory.py`）**：负责根据配置创建和组装工具列表。处理 WebSearchTool 的自动降级逻辑（Tavily/Brave/DuckDuckGo），并通过 `langchain-mcp-adapters` 加载 MCP 工具
-* **ToolRegistry**：单例注册表，管理所有可用工具
-* **延迟加载**：默认工具（文件、搜索等）由 Factory 创建，Agent 启动时自动注册
-* **OpenAI 兼容**：支持导出 OpenAI Function Calling 格式的工具定义
-* **MCP 支持**：通过官方 `langchain-mcp-adapters` 库支持 MCP 协议，支持 stdio 和 HTTP 传输
+FinchBot 使用装饰器模式定义工具，自动注册到全局注册表：
 
-#### 工具系统架构
+* **@tool 装饰器**：将函数转换为 LangChain 工具并注册
+* **@sync_tool 装饰器**：包装同步函数为异步工具
+* **@class_tool 装饰器**：将类转换为工具
+
+```python
+@tool(
+    name="read_file",
+    description="读取文件内容",
+    category=ToolCategory.FILE,
+    requires_workspace=True,
+)
+async def read_file(file_path: str) -> str:
+    ...
+```
+
+#### 工具元数据
+
+每个工具都有 `ToolMeta` 元数据：
+
+| 属性 | 说明 |
+|:---|:---|
+| `name` | 工具名称 |
+| `description` | 工具描述 |
+| `category` | 工具分类（ToolCategory 枚举） |
+| `requires_workspace` | 是否需要工作区参数 |
+| `requires_config` | 是否需要配置参数 |
+| `dangerous` | 是否为危险工具 |
+| `timeout` | 执行超时时间 |
+
+#### 工具分类
 
 ```mermaid
 flowchart TB
-    classDef registry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef builtin fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef mcp fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#7b1fa2;
-    classDef agent fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef enhance fill:#ffecb3,stroke:#ff8f00,stroke-width:2px,color:#e65100;
-
-    TR[ToolRegistry<br/>全局注册表]:::registry
-    Lock[单锁模式<br/>线程安全单例]:::registry
-
-    subgraph BuiltIn [内置工具 - 15个]
-        File[文件操作<br/>read/write/edit/list]:::builtin
-        Web[网络<br/>search/extract]:::builtin
-        Memory[记忆<br/>remember/recall/forget]:::builtin
-        System[系统<br/>exec/session_title]:::builtin
-        Config[配置<br/>configure_mcp/refresh_capabilities<br/>get_capabilities/get_mcp_config_path]:::builtin
+    subgraph 内置工具
+        FILE["FILE<br/>read/write/edit/list"]
+        MEMORY["MEMORY<br/>remember/recall/forget"]
+        WEB["WEB<br/>search/extract"]
+        SHELL["SHELL<br/>exec"]
+        CONFIG["CONFIG<br/>configure_mcp/refresh"]
+        BG["BACKGROUND<br/>start/check/cancel"]
+        SCHED["SCHEDULE<br/>create/list/delete"]
     end
-
-    subgraph MCP [MCP 工具 - langchain-mcp-adapters]
-        MCPConfig[MCPServerConfig<br/>stdio/HTTP 配置]:::mcp
-        MCPClient[MultiServerMCPClient<br/>官方客户端]:::mcp
-        MCPTools[MCP Tools<br/>外部工具]:::mcp
+    
+    subgraph MCP工具
+        MCP["MCPConnector<br/>→ MCPToolWithTimeout"]
     end
-
-    subgraph Enhancements [MCP 增强 - 新增]
-        Timeout[超时控制<br/>默认 60 秒]:::enhance
-        Reconnect[重连机制<br/>最大 3 次尝试]:::enhance
-        HealthCheck[健康检查<br/>60 秒间隔]:::enhance
-        ExitStack[AsyncExitStack<br/>资源管理]:::enhance
+    
+    subgraph 注册表
+        TR["ToolRegistry<br/>单例管理"]
     end
-
-    Agent[Agent 调用]:::agent
-
-    TR --> Lock
-    Lock --> BuiltIn
-    MCPConfig --> MCPClient --> MCPTools --> TR
-    MCPClient --> Enhancements
-    TR --> Agent
+    
+    内置工具 --> TR
+    MCP --> TR
 ```
 
-#### 工具基类
+#### Middleware 层
 
-所有工具继承 `FinchTool` 基类，必须实现：
-- `name`：工具名称
-- `description`：工具描述
-- `parameters`：参数定义（JSON Schema）
-- `_run()`：执行逻辑
+基于 LangChain 1.0 AgentMiddleware API 实现：
+
+```mermaid
+flowchart LR
+    TR["ToolRegistry"] --> MW["Middleware 层"]
+    
+    subgraph MW
+        direction TB
+        M1["DynamicToolMiddleware<br/>动态注入工具"]
+        M2["ToolFilterMiddleware<br/>过滤可用工具"]
+        M3["MCPHotUpdateMiddleware<br/>MCP 热更新"]
+    end
+    
+    MW --> Agent["Agent"]
+```
+
+| Middleware | 功能 |
+|:---|:---|
+| `DynamicToolMiddleware` | 检查配置变化，动态注入 MCP 工具 |
+| `ToolFilterMiddleware` | 根据配置过滤可用工具 |
+| `MCPHotUpdateMiddleware` | MCP 配置变化时自动热更新 |
+
+#### MCP 连接器
+
+`MCPConnector` 管理 MCP 服务器的连接生命周期：
+
+* **并发连接**：`connect_all()` 并发连接所有服务器
+* **健康检查**：60 秒间隔检查服务器状态
+* **重连机制**：最多 3 次重连尝试
+* **超时控制**：`MCPToolWithTimeout` 包装工具
 
 #### 安全沙箱
 
@@ -495,23 +541,27 @@ flowchart TB
 
 #### 内置工具一览
 
-| 工具名称 | 类别 | 文件 | 功能 |
-|:---|:---|:---|:---|
-| `read_file` | 文件 | `filesystem.py` | 读取文件内容 |
-| `write_file` | 文件 | `filesystem.py` | 写入文件 |
-| `edit_file` | 文件 | `filesystem.py` | 编辑文件（行级别） |
-| `list_dir` | 文件 | `filesystem.py` | 列出目录内容 |
-| `exec` | 系统 | `shell.py` | 执行 Shell 命令 |
-| `web_search` | 网络 | `web.py` / `search/` | 网页搜索（支持 Tavily/Brave/DuckDuckGo） |
-| `web_extract` | 网络 | `web.py` | 网页内容提取（支持 Jina AI 降级） |
-| `remember` | 记忆 | `memory.py` | 存储记忆 |
-| `recall` | 记忆 | `memory.py` | 检索记忆 |
-| `forget` | 记忆 | `memory.py` | 删除/归档记忆 |
-| `session_title` | 系统 | `session_title.py` | 管理会话标题 |
-| `configure_mcp` | 配置 | `config_tools.py` | 动态配置 MCP 服务器（添加/删除/更新/启用/禁用/列出） |
-| `refresh_capabilities` | 配置 | `config_tools.py` | 刷新能力描述文件 |
-| `get_capabilities` | 配置 | `config_tools.py` | 获取当前能力描述 |
-| `get_mcp_config_path` | 配置 | `config_tools.py` | 获取 MCP 配置文件路径 |
+| 工具名称 | 类别 | 功能 |
+|:---|:---|:---|
+| `read_file` | FILE | 读取文件内容 |
+| `write_file` | FILE | 写入文件 |
+| `edit_file` | FILE | 编辑文件（行级别） |
+| `list_dir` | FILE | 列出目录内容 |
+| `exec` | SHELL | 执行 Shell 命令 |
+| `web_search` | WEB | 网页搜索（Tavily/Brave/DuckDuckGo） |
+| `web_extract` | WEB | 网页内容提取 |
+| `remember` | MEMORY | 存储记忆 |
+| `recall` | MEMORY | 检索记忆 |
+| `forget` | MEMORY | 删除/归档记忆 |
+| `configure_mcp` | CONFIG | 动态配置 MCP 服务器 |
+| `refresh_capabilities` | CONFIG | 刷新能力描述文件 |
+| `start_background_task` | BACKGROUND | 启动后台任务 |
+| `check_task_status` | BACKGROUND | 检查任务状态 |
+| `get_task_result` | BACKGROUND | 获取任务结果 |
+| `cancel_task` | BACKGROUND | 取消任务 |
+| `create_cron` | SCHEDULE | 创建定时任务 |
+| `list_crons` | SCHEDULE | 列出定时任务 |
+| `delete_cron` | SCHEDULE | 删除定时任务 |
 
 #### 网页搜索：三引擎降级设计
 
@@ -946,9 +996,9 @@ flowchart TB
 
 ### 2.10 后台任务系统 (Subagent)
 
-**实现位置**：`src/finchbot/background/`
+**实现位置**：`src/finchbot/agent/subagent.py`、`src/finchbot/tools/builtin/background.py`
 
-FinchBot 实现了先进的后台任务系统，采用**三工具模式**让 Agent 能够异步执行长时间任务。
+FinchBot 实现了先进的后台任务系统，采用**四工具模式**让 Agent 能够异步执行长时间任务。
 
 #### 为什么需要后台任务？
 
@@ -958,21 +1008,21 @@ FinchBot 实现了先进的后台任务系统，采用**三工具模式**让 Age
 | **批量处理** | 超时失败 | 异步处理，状态追踪 |
 | **代码生成** | 单线程阻塞 | 并发执行，提高效率 |
 
-#### 三工具模式
+#### 四工具模式
 
 ```mermaid
 sequenceDiagram
     participant U as 用户
-    participant A as 智能体
+    participant A as 主 Agent
     participant SM as SubagentManager
-    participant SA as 子智能体<br/>(独立循环)
-    participant JS as JobStore
+    participant JM as JobManager
+    participant SA as 子 Agent 循环
 
     U->>A: 执行长时间任务
-    A->>SM: start_background_task
-    SM->>JS: 创建任务 (pending)
+    A->>SM: spawn(task, label, session_key)
+    SM->>JM: 创建任务 (pending)
     SM->>SA: 创建独立 Agent 循环
-    JS-->>A: 返回 job_id
+    JM-->>A: 返回 job_id
     A-->>U: 任务已启动 (ID: xxx)
     
     Note over U,A: 用户继续对话...
@@ -982,8 +1032,8 @@ sequenceDiagram
     
     U->>A: 任务进度如何？
     A->>SM: check_task_status
-    SM->>JS: 查询状态
-    JS-->>SM: running (迭代 5/15)
+    SM->>JM: 查询状态
+    JM-->>SM: running (迭代 5/15)
     A-->>U: 正在执行中...
     
     loop 最多 15 次迭代
@@ -994,17 +1044,16 @@ sequenceDiagram
     SA-->>SM: 任务完成
     SM->>SM: on_notify 回调
     SM->>A: 注入结果到会话
-    A-->>U: 🔔 后台任务完成通知
+    A-->>U: 后台任务完成通知
 ```
 
 #### 核心组件
 
 | 组件 | 文件 | 功能 |
 | :--- | :--- | :--- |
-| **SubagentManager** | `subagent.py` | 管理独立 Agent 循环，最多 15 次迭代 |
-| **JobStore** | `store.py` | 内存存储任务状态 |
-| **BackgroundTools** | `tools.py` | 四个工具实现 |
-| **Subagent** | Agent 实例 | 独立执行任务 |
+| **SubagentManager** | `agent/subagent.py` | 管理独立 Agent 循环，最多 15 次迭代 |
+| **JobManager** | `tools/builtin/background.py` | 任务状态管理 |
+| **BackgroundTools** | `tools/builtin/background.py` | 四个工具实现 |
 
 #### SubagentManager 机制
 
@@ -1016,6 +1065,7 @@ SubagentManager 是后台任务的核心，实现了独立 Agent 循环执行：
 | **最大 15 次迭代** | 防止无限循环，确保任务终止 |
 | **on_notify 回调** | 任务完成后通知主会话 |
 | **会话级管理** | 每个会话独立的任务管理 |
+| **工具绑定** | 预先绑定工具，避免序列化问题 |
 
 #### 回调机制
 

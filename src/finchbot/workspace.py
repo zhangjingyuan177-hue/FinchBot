@@ -168,7 +168,4 @@ def is_workspace_initialized(workspace: Path) -> bool:
             return False
 
     # 检查 MCP 配置文件是否存在
-    if not get_mcp_config_path(workspace).exists():
-        return False
-
-    return True
+    return get_mcp_config_path(workspace).exists()

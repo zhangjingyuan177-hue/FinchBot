@@ -198,98 +198,6 @@ mcp = "MCP 工具"
 others = "其他工具"
 no_description = "无描述"
 
-[tools.read_file]
-name = "read_file"
-description = "读取指定路径的文本文件内容。仅支持 UTF-8 编码，二进制文件可能显示乱码。"
-hint = "建议先使用 list_dir 查看目录结构，再使用 read_file 读取具体文件。"
-param_path = "文件路径，必须是完整路径"
-error_not_found = "错误: 文件不存在"
-error_not_file = "错误: 不是文件"
-
-[tools.write_file]
-name = "write_file"
-description = "将内容写入文件，自动创建父目录。警告：如果文件已存在，将直接覆盖！"
-hint = "用于创建新文件或完全重写已有文件。如需修改现有文件的部分内容，请使用 edit_file。"
-param_path = "文件路径，将自动创建不存在的父目录"
-param_content = "要写入的文件内容"
-
-[tools.edit_file]
-name = "edit_file"
-description = "通过替换文本编辑文件。old_text 必须精确匹配（包括空格和换行）。如果 old_text 出现多次，会返回警告要求提供更多上下文。"
-hint = "建议先用 read_file 查看文件内容，确保 old_text 精确匹配后再调用。适用于修改文件的特定部分。"
-param_path = "要编辑的文件路径"
-param_old_text = "要被替换的文本，必须精确匹配（包括空格和换行）"
-param_new_text = "用于替换的新文本"
-
-[tools.list_dir]
-name = "list_dir"
-description = "列出目录内容，按名称字母顺序排序。📁 表示目录，📄 表示文件。"
-hint = "使用此工具探索目录结构后，可使用 read_file 读取具体文件内容。"
-param_path = "目录路径"
-
-[tools.exec]
-name = "exec"
-description = "执行 shell 命令并返回输出。默认超时 60 秒，输出超过 10000 字符会被截断。包含安全检查，禁止危险命令。"
-hint = "优先使用文件系统工具（read_file/write_file/edit_file）处理文件，仅在需要批量操作、复杂文本处理或系统命令时使用 exec。适用于：批量文件操作、复杂文本处理、系统信息查询、需要管道或重定向的场景。"
-param_command = "要执行的 shell 命令"
-param_working_dir = "可选的工作目录，默认为当前目录"
-
-[tools.web_search]
-name = "web_search"
-description = "搜索互联网获取最新信息。默认返回 5 条结果，支持 Tavily、Brave Search 和 DuckDuckGo 自动降级。"
-hint = "当需要最新信息、验证事实、或获取外部资源时使用。搜索查询应简洁明确。如需详细内容，先用 web_search 获取 URL，再用 web_extract 提取全文。"
-param_query = "搜索查询，应简洁明确"
-param_max_results = "最大返回结果数，默认 5"
-
-[tools.web_extract]
-name = "web_extract"
-description = "从网页 URL 提取内容。支持批量提取（建议一次不超过 5 个 URL）。返回内容超过 5000 字符会被截断。"
-hint = "最佳实践：先用 web_search 获取相关 URL，再用 web_extract 提取详细内容。适用于需要阅读网页全文内容的场景。"
-param_urls = "要提取内容的 URL 列表，支持批量（建议一次不超过 5 个）"
-param_extract_depth = "提取深度: basic(快速提取) 或 advanced(深入提取，默认)"
-
-[tools.remember]
-name = "remember"
-description = "保存重要信息到记忆库，以便后续检索。"
-hint = "当用户告诉你重要信息（如名字、偏好、联系方式、日程等）时，必须调用此工具。"
-param_content = "要记住的信息内容"
-param_category = "分类: personal(个人信息), preference(偏好), work(工作), contact(联系方式), goal(目标), schedule(日程), general(通用)"
-param_importance = "重要性评分 (0-1)，越高越重要"
-success = "信息已保存到记忆库"
-
-[tools.recall]
-name = "recall"
-description = "从记忆库中搜索和检索信息。支持基于查询类型的混合检索策略（加权 RRF）。"
-hint = "当用户询问关于他自己的信息时，必须先调用此工具检索记忆。根据查询类型选择合适的 query_type：factual 用于事实性查询（如'我的邮箱是多少'），conceptual 用于概念性查询（如'我喜欢的食物'），complex 用于复杂查询，ambiguous 用于歧义查询，keyword_only 用于特定ID或名称查询，semantic_only 用于语义探索。"
-param_query = "搜索查询内容"
-param_category = "按分类过滤（可选）"
-param_top_k = "最大返回数量"
-param_query_type = "查询类型: keyword_only (1.0/0.0), semantic_only (0.0/1.0), factual (0.8/0.2), conceptual (0.2/0.8), complex (0.5/0.5), ambiguous (0.3/0.7)"
-param_similarity_threshold = "相似度阈值 (0.0-1.0)，用于过滤语义不相关的结果，默认 0.5。当返回不相关结果时可提高阈值（如 0.7），当返回结果过少时可降低阈值（如 0.3）"
-not_found = "未找到匹配的记忆"
-
-[tools.forget]
-name = "forget"
-description = "从记忆库中删除指定的信息。删除是永久性的，无法恢复。支持部分匹配，例如输入'邮箱'会删除所有包含'邮箱'的记忆。"
-hint = "当用户明确要求忘记、删除或清除某些信息时调用此工具。删除后无法恢复，请谨慎使用。"
-param_pattern = "要删除的内容匹配模式，支持部分匹配。例如输入'邮箱'会删除所有包含'邮箱'的记忆。"
-success = "记忆条目已删除"
-
-[tools.session_title]
-name = "session_title"
-description = "获取或设置当前会话的标题。"
-hint = "当对话进行 2-3 轮后，如果标题为空或需要修改时使用。"
-param_action = "操作类型: get(获取标题) 或 set(设置标题)"
-param_title = "新标题（仅 set 时需要），5-15 个字符，无标点"
-error_no_title = "错误: 设置标题时必须提供标题"
-error_invalid_action = "错误: 无效的操作类型，请使用 get 或 set"
-error_too_short = "错误: 标题至少需要 5 个字符"
-no_session = "未找到当前会话"
-current = "当前标题: {title}（{message_count} 条消息）"
-current_none = "当前无标题（会话ID: {session_id}）。{hint}"
-get_hint = "对话 2-3 轮后可使用 action=set 生成标题"
-set_success = "✅ 标题已设置为: {title}"
-
 [session_title]
 role_user = "用户"
 role_ai = "AI"
@@ -551,20 +459,11 @@ system_md = """# FinchBot (雀翎)
 
 ### 自主执行（后台任务）
 当你判断任务需要长时间执行时，可以自主启动后台任务：
-- `start_background_task`: 启动后台任务，任务会在后台执行，你可以继续当前对话
-- `check_task_status`: 检查后台任务状态（pending/running/completed/failed/cancelled）
+- `start_background_task`: 启动后台任务
+- `check_task_status`: 检查后台任务状态
 - `get_task_result`: 获取已完成任务的结果
 - `cancel_task`: 取消正在运行的后台任务
-
-**使用场景**：
-- 长时间研究任务（如分析多个文档、搜索大量信息）
-- 批量数据处理
-- 复杂代码生成
-
-**示例**：
-用户："帮我分析这 100 个 GitHub 仓库"
-你的决策：这是一个长时间任务，我应该启动后台任务
-你的行动：调用 start_background_task(description="分析 100 个 GitHub 仓库")
+- `list_background_tasks`: 列出所有后台任务
 
 ### 自主规划（定时任务）
 你可以自主创建定时任务，设定未来的执行计划：
@@ -572,76 +471,71 @@ system_md = """# FinchBot (雀翎)
 - `list_crons`: 列出所有定时任务
 - `delete_cron`: 删除定时任务
 - `toggle_cron`: 启用/禁用定时任务
-
-**Cron 表达式格式**：`分 时 日 月 周`
-- `0 9 * * *` - 每天上午 9 点
-- `0 */2 * * *` - 每 2 小时
-- `30 18 * * 1-5` - 工作日下午 6:30
-- `0 0 1 * *` - 每月 1 日零点
-
-**使用场景**：
-- 用户说"每天提醒我..."、"每周..."等时间相关请求
-- 周期性任务（如定时检查、定时报告）
-
-**示例**：
-用户："每天早上 9 点提醒我查看邮件"
-你的决策：这是一个定时任务请求
-你的行动：调用 create_cron(name="晨间邮件提醒", schedule="0 9 * * *", message="请查看今日邮件")
-
-### 自主监控（心跳服务）
-系统有心跳服务会定期检查 HEARTBEAT.md 文件。你可以在该文件中添加待办事项，心跳服务会定期检查并提醒你。
-
-心跳文件位置：工作区根目录的 HEARTBEAT.md
-
-**使用场景**：
-- 记录需要定期检查的事项
-- 设置自动触发条件
+- `run_cron_now`: 立即执行定时任务
 
 ### 自主扩展（MCP 配置）
 你可以自主配置 MCP 服务器来扩展自己的能力：
-- `configure_mcp`: 添加/修改/删除 MCP 服务器
+- `configure_mcp`: 添加/修改/删除/启用/禁用 MCP 服务器
 - `refresh_capabilities`: 刷新能力描述文件
 - `get_capabilities`: 获取当前能力描述
 - `get_mcp_config_path`: 获取 MCP 配置文件路径
 
-**使用场景**：
-- 发现需要某种能力（如数据库操作、浏览器自动化）
-- 搜索可用的 MCP 服务器
-- 自主配置并开始使用新工具
+## 文件系统工具
+- `read_file`: 读取指定路径的文本文件内容
+- `write_file`: 将内容写入文件，自动创建父目录
+- `edit_file`: 通过替换文本编辑文件
+- `list_dir`: 列出目录内容
 
-**示例**：
-用户："帮我分析这个 SQLite 数据库"
-你的判断：当前没有数据库操作工具
-你的行动：调用 configure_mcp(action="add", server_name="sqlite", ...) 配置 SQLite MCP
-然后：使用新获得的数据库工具完成任务
+### 文件访问范围 ⚠️
+出于安全考虑，文件操作工具只能访问特定目录：
+- **工作目录**: 工作目录及其子目录（查看下方"运行环境"获取具体路径）
+- **内置技能**: 内置技能目录（skill-creator, summarize, task-management 等）
 
-MCP 配置存储在工作区的 config/mcp.json 文件中。
+如果用户请求访问这些目录之外的文件，告知用户当前允许访问的目录范围，建议用户将文件复制到工作目录内。
 
-## Agent 自配置能力
-你可以使用以下工具动态配置自己：
-- `configure_mcp`: 添加/修改/删除 MCP 服务器
-- `refresh_capabilities`: 刷新能力描述文件
-- `get_capabilities`: 获取当前能力描述
-- `get_mcp_config_path`: 获取 MCP 配置文件路径
+## Shell 执行工具
+- `exec`: 执行 shell 命令并返回输出（有安全检查和超时限制）
 
-MCP 配置存储在工作区的 config/mcp.json 文件中。
+### Shell 命令平台指南 ⚠️
+当前运行平台信息会在运行时注入（查看下方"运行环境"部分）。
 
-## 文件系统工具使用指南
-- `list_dir`: 探索目录结构，了解有哪些文件
-- `read_file`: 读取文件内容，了解文件详情
-- `write_file`: 创建新文件或完全重写已有文件（谨慎使用，会覆盖）
-- `edit_file`: 修改现有文件的特定内容（old_text 必须精确匹配）
-- 最佳实践：先 list_dir 了解结构，再 read_file 查看内容，最后根据需求使用 write_file 或 edit_file
+根据平台使用正确的命令语法：
 
-## 网页搜索工具使用指南
-- `web_search`: 获取最新信息、验证事实、查找外部资源
-- `web_extract`: 从特定 URL 提取详细内容
-- 最佳实践：先用 web_search 找到相关 URL，再用 web_extract 获取详细内容
+**Windows 平台命令**:
+- 列出文件: `dir` (而非 `ls`)
+- 删除文件: `del filename` 或 `Remove-Item filename`
+- 删除目录: `rmdir /s dirname` 或 `Remove-Item -Recurse dirname`
+- 复制文件: `copy src dst` 或 `Copy-Item src dst`
+- 移动文件: `move src dst` 或 `Move-Item src dst`
+- 查找文件: `dir /s /b pattern` 或 `Get-ChildItem -Recurse`
+- 文件内容: `type filename` (而非 `cat`)
+- 统计行数: `find /c /v "" filename`
+- 环境变量: `echo %VAR%` (CMD) 或 `$env:VAR` (PowerShell)
 
-## 执行工具使用指南
-- `exec`: 执行 shell 命令，用于复杂操作
-- 优先使用文件系统工具处理文件，仅在需要批量操作或复杂处理时使用 exec
-- 注意：exec 有 60 秒超时和输出长度限制
+**Unix/Linux/macOS 平台命令**:
+- 列出文件: `ls -la`
+- 删除文件: `rm filename`
+- 删除目录: `rm -rf dirname`
+- 复制文件: `cp src dst`
+- 移动文件: `mv src dst`
+- 查找文件: `find . -name pattern`
+- 文件内容: `cat filename`
+- 统计行数: `wc -l filename`
+- 环境变量: `echo $VAR`
+
+**重要**: 执行命令前，先确认当前平台，使用对应的命令语法！
+
+## 网络工具
+- `web_search`: 搜索互联网获取最新信息
+- `web_extract`: 从网页 URL 提取内容
+
+## 记忆工具
+- `remember`: 保存重要信息到记忆库
+- `recall`: 从记忆库中搜索和检索信息
+- `forget`: 从记忆库中删除指定的信息
+
+## 会话工具
+- `session_title`: 获取或设置当前会话的标题
 
 ## 工具使用原则
 - 主动使用工具完成任务，不要只是说"我会记住"
@@ -719,25 +613,13 @@ soul_md = """# 自我认知 (Soul)
 
 [capabilities.mcp]
 title = "MCP (Model Context Protocol) 配置"
-configured_servers = "你已配置以下 MCP 服务器，它们提供了额外的工具能力："
-available_tools = "可用 MCP 工具"
-tools_intro = "以下工具来自 MCP 服务器，扩展了你的能力："
-how_to_add = "如何新增 MCP 服务器"
-add_steps = """用户可以通过以下方式新增 MCP 服务器：
-1. 运行 `finchbot config` 命令
-2. 选择 'MCP 服务器' 选项
-3. 选择预设模板（如 Filesystem、GitHub、Brave Search）或自定义配置"""
+configured_servers = "已配置以下 MCP 服务器："
 no_description = "无描述"
 
 [capabilities.channel]
 title = "消息渠道 (Channel)"
 langbot_enabled = "当前已启用 LangBot 平台集成。"
 langbot_url = "配置地址：https://langbot.app"
-langbot_migration = "消息渠道功能已迁移到 LangBot 平台。"
-langbot_steps = """如需多平台消息支持，请：
-1. 访问 https://langbot.app
-2. 配置所需平台
-3. 在配置中启用 `langbot_enabled: true`"""
 
 [capabilities.status]
 enabled = "已启用"
@@ -746,17 +628,9 @@ disabled = "已禁用"
 [capabilities.extension]
 title = "如何扩展我的能力"
 add_mcp = "新增 MCP 服务器"
-mcp_steps = """1. 运行 `finchbot config`
-2. 选择 "MCP 服务器"
-3. 选择预设模板或自定义配置
-
-或者使用 `configure_mcp` 工具动态配置。"""
-mcp_config_location = "MCP 配置存储在工作区的 config/mcp.json 文件中"
-add_skill = "新增技能"
-skill_steps = """1. 在工作目录的 `skills/` 文件夹中创建新目录
-2. 创建 `SKILL.md` 文件描述技能"""
+mcp_steps = """使用 `configure_mcp` 工具动态配置 MCP 服务器。"""
 refresh_capabilities = "刷新能力描述"
-refresh_hint = "使用 `refresh_capabilities` 工具可以刷新 CAPABILITIES.md 文件"
+refresh_hint = "使用 `refresh_capabilities` 工具可以刷新能力描述文件"
 
 [workspace]
 title = "工作区结构"

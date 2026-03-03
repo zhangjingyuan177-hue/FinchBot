@@ -262,6 +262,7 @@ class CronService:
         """设置定时器."""
         if self._timer_task:
             self._timer_task.cancel()
+            self._timer_task = None
 
         next_wake = self._get_next_wake_ms()
         if not next_wake or not self._running:
@@ -276,9 +277,11 @@ class CronService:
                 await self._on_timer()
 
         try:
-            asyncio.get_running_loop()
+            # Python 3.13+ 不再支持 loop 参数
             self._timer_task = asyncio.create_task(tick())
         except RuntimeError:
+            # 没有运行中的事件循环，定时器将在服务启动时设置
+            logger.debug("CronService: No running event loop, timer will be armed on next start")
             pass
 
     async def _on_timer(self) -> None:
@@ -325,15 +328,20 @@ class CronService:
         job.state.last_run_at_ms = start_ms
         job.updated_at_ms = now_ms()
 
-        if job.payload.deliver and job.payload.channel and job.payload.to:
-            if response and self.on_deliver:
-                try:
-                    await self.on_deliver(job.payload.channel, job.payload.to, response)
-                    logger.info(
-                        f"Cron job '{job.name}' result delivered to {job.payload.channel}:{job.payload.to}"
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to deliver cron job result: {e}")
+        if (
+            job.payload.deliver
+            and job.payload.channel
+            and job.payload.to
+            and response
+            and self.on_deliver
+        ):
+            try:
+                await self.on_deliver(job.payload.channel, job.payload.to, response)
+                logger.info(
+                    f"Cron job '{job.name}' result delivered to {job.payload.channel}:{job.payload.to}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to deliver cron job result: {e}")
 
         if job.schedule.kind == "at":
             if job.delete_after_run:
@@ -405,10 +413,22 @@ class CronService:
 
         store.jobs.append(job)
         self._save_store()
-        self._arm_timer()
+
+        # 尝试设置定时器，如果没有事件循环则跳过（服务启动时会重新设置）
+        self._try_arm_timer()
 
         logger.info(t("cron.job_created", id=job.id, schedule=schedule.expr or schedule.kind))
         return job
+
+    def _try_arm_timer(self) -> None:
+        """尝试设置定时器，处理没有事件循环的情况."""
+        try:
+            self._arm_timer()
+        except RuntimeError:
+            # 没有运行中的事件循环，定时器将在服务启动时设置
+            logger.debug(
+                "CronService: Cannot arm timer without event loop, will be armed on next start"
+            )
 
     def remove_job(self, job_id: str) -> bool:
         """删除任务.
@@ -426,7 +446,7 @@ class CronService:
 
         if removed:
             self._save_store()
-            self._arm_timer()
+            self._try_arm_timer()
             logger.info(t("cron.job_deleted", id=job_id))
 
         return removed
@@ -451,7 +471,7 @@ class CronService:
                 else:
                     job.state.next_run_at_ms = None
                 self._save_store()
-                self._arm_timer()
+                self._try_arm_timer()
                 return job
         return None
 
@@ -472,7 +492,7 @@ class CronService:
                     return False
                 await self._execute_job(job)
                 self._save_store()
-                self._arm_timer()
+                self._try_arm_timer()
                 return True
         return False
 
@@ -502,4 +522,53 @@ class CronService:
             "enabled": self._running,
             "jobs": len(store.jobs),
             "next_wake_at_ms": self._get_next_wake_ms(),
+        }
+
+    def get_pending_jobs(self) -> list[CronJob]:
+        """获取待处理的定时任务.
+
+        返回下次执行时间在当前时间之前的任务。
+
+        Returns:
+            待处理任务列表
+        """
+        store = self._load_store()
+        current_ms = now_ms()
+        pending = []
+
+        for job in store.jobs:
+            if not job.enabled:
+                continue
+            if job.state.next_run_at_ms and job.state.next_run_at_ms <= current_ms:
+                pending.append(job)
+
+        return pending
+
+    def get_next_jobs(self, count: int = 5) -> list[CronJob]:
+        """获取即将执行的任务.
+
+        Args:
+            count: 返回数量
+
+        Returns:
+            按执行时间排序的任务列表
+        """
+        store = self._load_store()
+        jobs = [job for job in store.jobs if job.enabled and job.state.next_run_at_ms]
+        jobs.sort(key=lambda j: j.state.next_run_at_ms or 0)
+        return jobs[:count]
+
+    def get_job_summary(self) -> dict:
+        """获取任务摘要.
+
+        Returns:
+            任务摘要字典
+        """
+        store = self._load_store()
+        next_runs = [j.state.next_run_at_ms for j in store.jobs if j.state.next_run_at_ms]
+        return {
+            "total": len(store.jobs),
+            "enabled": sum(1 for j in store.jobs if j.enabled),
+            "disabled": sum(1 for j in store.jobs if not j.enabled),
+            "next_run": min(next_runs) if next_runs else None,
         }

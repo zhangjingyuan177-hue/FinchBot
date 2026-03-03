@@ -1,15 +1,12 @@
-"""MCP 连接管理器.
+"""MCP 连接器.
 
-使用 AsyncExitStack 管理 MCP 连接生命周期，支持：
-- 资源自动清理
-- 连接状态监控
-- 断线重连
-- 健康检查
+管理 MCP 服务器的连接和工具获取。
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import time
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
@@ -18,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from langchain_core.tools import BaseTool
 from loguru import logger
 
-from finchbot.tools.mcp_wrapper import MCPToolWithTimeout
+from finchbot.tools.mcp.wrapper import MCPToolWithTimeout
 
 if TYPE_CHECKING:
     from finchbot.config.schema import Config, MCPServerConfig
@@ -37,8 +34,8 @@ class MCPServerState:
     tools: list[BaseTool] = field(default_factory=list)
 
 
-class MCPConnectionManager:
-    """MCP 连接管理器.
+class MCPConnector:
+    """MCP 连接器.
 
     管理所有 MCP 服务器的连接生命周期。
 
@@ -51,7 +48,7 @@ class MCPConnectionManager:
     """
 
     def __init__(self, config: Config) -> None:
-        """初始化连接管理器.
+        """初始化连接器.
 
         Args:
             config: FinchBot 配置
@@ -64,7 +61,7 @@ class MCPConnectionManager:
         self._reconnect_interval_s = 30
         self._health_check_interval_s = 60
 
-    async def __aenter__(self) -> MCPConnectionManager:
+    async def __aenter__(self) -> MCPConnector:
         """异步上下文管理器入口."""
         await self.start()
         return self
@@ -74,7 +71,7 @@ class MCPConnectionManager:
         await self.stop()
 
     async def start(self) -> None:
-        """启动连接管理器."""
+        """启动连接器."""
         if self._running:
             return
 
@@ -87,18 +84,16 @@ class MCPConnectionManager:
                 self._servers[name] = MCPServerState(name=name, config=server_config)
 
         self._health_task = asyncio.create_task(self._health_check_loop())
-        logger.info(f"MCP Connection Manager started with {len(self._servers)} servers")
+        logger.info(f"MCP Connector 启动，{len(self._servers)} 个服务器")
 
     async def stop(self) -> None:
-        """停止连接管理器."""
+        """停止连接器."""
         self._running = False
 
         if self._health_task:
             self._health_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._health_task
-            except asyncio.CancelledError:
-                pass
             self._health_task = None
 
         if self._stack:
@@ -106,7 +101,7 @@ class MCPConnectionManager:
             self._stack = None
 
         self._servers.clear()
-        logger.info("MCP Connection Manager stopped")
+        logger.info("MCP Connector 已停止")
 
     async def connect_all(self) -> list[BaseTool]:
         """连接所有 MCP 服务器并获取工具.
@@ -125,15 +120,15 @@ class MCPConnectionManager:
 
         results = await asyncio.gather(*connect_tasks, return_exceptions=True)
 
-        for name, result in zip(self._servers.keys(), results):
+        for name, result in zip(self._servers.keys(), results, strict=False):
             if isinstance(result, Exception):
-                logger.error(f"Failed to connect MCP server '{name}': {result}")
+                logger.error(f"连接 MCP 服务器 '{name}' 失败: {result}")
             elif isinstance(result, list):
                 all_tools.extend(result)
 
         connected_count = sum(1 for s in self._servers.values() if s.connected)
         logger.info(
-            f"MCP: {connected_count}/{len(self._servers)} servers connected, {len(all_tools)} tools loaded"
+            f"MCP: {connected_count}/{len(self._servers)} 服务器已连接，{len(all_tools)} 个工具"
         )
 
         return all_tools
@@ -169,13 +164,13 @@ class MCPConnectionManager:
             state.last_heartbeat_ms = int(time.time() * 1000)
             state.last_error = None
 
-            logger.info(f"MCP server '{name}' connected with {len(tools)} tools")
+            logger.info(f"MCP 服务器 '{name}' 已连接，{len(tools)} 个工具")
             return tools
 
         except Exception as e:
             state.connected = False
             state.last_error = str(e)
-            logger.error(f"Failed to connect MCP server '{name}': {e}")
+            logger.error(f"连接 MCP 服务器 '{name}' 失败: {e}")
             return []
 
     def _build_server_config(self, name: str, config: MCPServerConfig) -> dict | None:
@@ -221,17 +216,17 @@ class MCPConnectionManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Health check error: {e}")
+                logger.error(f"健康检查错误: {e}")
 
     async def _check_health(self) -> None:
         """检查所有服务器健康状态."""
         for name, state in self._servers.items():
             if not state.connected:
                 if state.reconnect_count < 3:
-                    logger.info(f"Attempting to reconnect MCP server '{name}'")
+                    logger.info(f"尝试重连 MCP 服务器 '{name}'")
                     await self._reconnect_server(name, state)
                 else:
-                    logger.warning(f"MCP server '{name}' exceeded max reconnect attempts")
+                    logger.warning(f"MCP 服务器 '{name}' 超过最大重连次数")
 
     async def _reconnect_server(self, name: str, state: MCPServerState) -> None:
         """重连服务器.
@@ -244,7 +239,7 @@ class MCPConnectionManager:
         tools = await self._connect_server(name, state)
         if tools:
             state.reconnect_count = 0
-            logger.info(f"MCP server '{name}' reconnected successfully")
+            logger.info(f"MCP 服务器 '{name}' 重连成功")
 
     def get_status(self) -> dict[str, dict]:
         """获取所有服务器状态.
@@ -278,3 +273,19 @@ class MCPConnectionManager:
                 all_tools.extend(tools)
 
         return all_tools
+
+    def get_server_names(self) -> list[str]:
+        """获取所有服务器名称.
+
+        Returns:
+            服务器名称列表
+        """
+        return list(self._servers.keys())
+
+    def get_connected_servers(self) -> list[str]:
+        """获取已连接的服务器名称.
+
+        Returns:
+            已连接服务器名称列表
+        """
+        return [name for name, state in self._servers.items() if state.connected]

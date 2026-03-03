@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING
 
 from langchain_core.tools import BaseTool
 
-from finchbot.i18n import t
 from finchbot.workspace import get_capabilities_path
 
 if TYPE_CHECKING:
@@ -22,8 +21,7 @@ class CapabilitiesBuilder:
     """智能体能力构建器.
 
     负责构建智能体能力相关的系统提示词，包括：
-    - MCP 服务器配置信息
-    - MCP 工具列表
+    - MCP 服务器配置状态
     - Channel 配置状态
     - 扩展指南
     """
@@ -33,7 +31,7 @@ class CapabilitiesBuilder:
 
         Args:
             config: FinchBot 配置对象.
-            tools: 可选的工具列表（包含 MCP 工具）.
+            tools: 可选的工具列表（用于判断 MCP 工具数量）.
         """
         self.config = config
         self.tools = list(tools) if tools else []
@@ -46,12 +44,12 @@ class CapabilitiesBuilder:
         """
         parts = []
 
-        # 1. MCP 配置和能力
-        mcp_section = self._build_mcp_section()
+        # 1. MCP 服务器状态（不含工具列表）
+        mcp_section = self._build_mcp_server_status()
         if mcp_section:
             parts.append(mcp_section)
 
-        # 2. Channel 配置和能力
+        # 2. Channel 状态
         channel_section = self._build_channel_section()
         if channel_section:
             parts.append(channel_section)
@@ -63,59 +61,28 @@ class CapabilitiesBuilder:
 
         return "\n\n---\n\n".join(parts)
 
-    def _build_mcp_section(self) -> str:
-        """构建 MCP 配置和能力说明.
+    def _build_mcp_server_status(self) -> str:
+        """构建 MCP 服务器状态（不含工具列表）.
 
         Returns:
-            MCP 相关提示词.
+            MCP 服务器状态字符串.
         """
-        lines = []
+        lines = ["## MCP 服务器\n"]
 
-        # MCP 服务器配置信息
         if self.config.mcp.servers:
-            lines.append(f"## {t('capabilities.mcp.title')}\n")
-            lines.append(f"{t('capabilities.mcp.configured_servers')}\n")
+            enabled_count = sum(1 for s in self.config.mcp.servers.values() if not s.disabled)
+            total_count = len(self.config.mcp.servers)
+            lines.append(f"已配置 {enabled_count}/{total_count} 个服务器：\n")
 
             for name, server in self.config.mcp.servers.items():
-                status = (
-                    t("capabilities.status.disabled")
-                    if server.disabled
-                    else t("capabilities.status.enabled")
-                )
-                if server.url:
-                    transport = "HTTP"
-                else:
-                    transport = "stdio"
+                status = "已禁用" if server.disabled else "已启用"
+                transport = "HTTP" if server.url else "stdio"
                 lines.append(f"- **{name}** ({transport}, {status})")
-
             lines.append("")
+        else:
+            lines.append("暂未配置 MCP 服务器。\n")
 
-        # MCP 工具列表
-        mcp_tools = self._get_mcp_tools()
-        if mcp_tools:
-            lines.append(f"### {t('capabilities.mcp.available_tools')}\n")
-            lines.append(f"{t('capabilities.mcp.tools_intro')}\n")
-
-            # 按服务器分组
-            tools_by_server: dict[str, list[BaseTool]] = {}
-            for tool in mcp_tools:
-                server_name = self._get_tool_server_name(tool)
-                if server_name not in tools_by_server:
-                    tools_by_server[server_name] = []
-                tools_by_server[server_name].append(tool)
-
-            for server_name, tools in tools_by_server.items():
-                lines.append(f"**{server_name}:**")
-                for tool in tools:
-                    desc = self._get_tool_description(tool)
-                    lines.append(f"  - `{tool.name}`: {desc}")
-                lines.append("")
-
-        # 如何新增 MCP
-        lines.append(f"### {t('capabilities.mcp.how_to_add')}\n")
-        lines.append(t("capabilities.mcp.add_steps"))
-
-        return "\n".join(lines) if lines else ""
+        return "\n".join(lines)
 
     def _build_channel_section(self) -> str:
         """构建 Channel 配置和能力说明.
@@ -123,17 +90,19 @@ class CapabilitiesBuilder:
         Returns:
             Channel 相关提示词.
         """
-        lines = [f"## {t('capabilities.channel.title')}\n"]
+        lines = ["## Channel 配置\n"]
 
         if self.config.channels.langbot_enabled:
-            lines.append(t("capabilities.channel.langbot_enabled"))
+            lines.append("LangBot 集成已启用。")
             lines.append("")
             lines.append(f"**LangBot URL:** {self.config.channels.langbot_url}")
             lines.append("")
         else:
-            lines.append(t("capabilities.channel.langbot_migration"))
+            lines.append("LangBot 集成未启用。")
             lines.append("")
-            lines.append(t("capabilities.channel.langbot_steps"))
+            lines.append(
+                "如需启用 LangBot 集成，请在配置文件中设置 `channels.langbot_enabled = true`。"
+            )
             lines.append("")
 
         return "\n".join(lines)
@@ -144,16 +113,21 @@ class CapabilitiesBuilder:
         Returns:
             扩展指南字符串.
         """
-        lines = [f"## {t('capabilities.extension.title')}\n"]
+        lines = ["## 扩展指南\n"]
 
-        lines.append(f"### {t('capabilities.extension.add_mcp')}\n")
-        lines.append(t("capabilities.extension.mcp_steps"))
-        lines.append("")
-        lines.append(f"**{t('capabilities.extension.mcp_config_location')}**\n")
+        # 添加 MCP
+        lines.append("### 添加 MCP 服务器\n")
+        lines.append("使用 `configure_mcp` 工具添加 MCP 服务器：\n")
+        lines.append("```")
+        lines.append(
+            'configure_mcp action=add server_name=github command=npx args=\'["-y", "@modelcontextprotocol/server-github"]\''
+        )
+        lines.append("```\n")
 
-        lines.append(f"**{t('config.env.title')}（推荐）**\n")
-        lines.append(t("config.env.mcp_env_hint"))
-        lines.append("\n```bash")
+        # 环境变量
+        lines.append("**环境变量配置（推荐）**\n")
+        lines.append("MCP 服务器需要的 API Key 等敏感信息，建议通过环境变量配置：\n")
+        lines.append("```bash")
         lines.append("# GitHub MCP")
         lines.append("export FINCHBOT_MCP_GITHUB_TOKEN=ghp_...")
         lines.append("")
@@ -161,97 +135,16 @@ class CapabilitiesBuilder:
         lines.append("export FINCHBOT_MCP_BRAVE_API_KEY=...")
         lines.append("```\n")
 
-        lines.append(f"### {t('capabilities.extension.add_skill')}\n")
-        lines.append(t("capabilities.extension.skill_steps"))
-        lines.append("")
+        # 添加技能
+        lines.append("### 添加技能\n")
+        lines.append("在 `~/.finchbot/skills/` 目录下创建 Python 文件，定义自定义工具。")
+        lines.append("工具会自动被发现并注册。\n")
 
-        lines.append(f"### {t('capabilities.extension.refresh_capabilities')}\n")
-        lines.append(t("capabilities.extension.refresh_hint"))
-        lines.append("")
-
-        lines.append(f"## {t('workspace.title')}\n")
-        lines.append(t("workspace.description"))
+        # 刷新能力
+        lines.append("### 刷新能力\n")
+        lines.append("使用 `refresh_capabilities` 工具刷新能力描述，更新 MCP 工具列表。\n")
 
         return "\n".join(lines)
-
-    def _get_mcp_tools(self) -> list[BaseTool]:
-        """获取 MCP 工具列表.
-
-        Returns:
-            MCP 工具列表.
-        """
-        mcp_tools = []
-        for tool in self.tools:
-            # 检查是否是 MCP 工具
-            # langchain-mcp-adapters 加载的工具可能有特定属性
-            tool_name = tool.name
-            # MCP 工具通常来自配置的服务器
-            if self._is_mcp_tool(tool):
-                mcp_tools.append(tool)
-        return mcp_tools
-
-    def _is_mcp_tool(self, tool: BaseTool) -> bool:
-        """判断工具是否是 MCP 工具.
-
-        Args:
-            tool: 工具实例.
-
-        Returns:
-            是否是 MCP 工具.
-        """
-        # 方法1: 检查工具名称是否匹配 MCP 服务器前缀
-        for server_name in self.config.mcp.servers.keys():
-            if tool.name.startswith(f"mcp_{server_name}_"):
-                return True
-
-        # 方法2: 检查工具是否有 MCP 相关属性
-        if hasattr(tool, "_mcp_server_name"):
-            return True
-
-        # 方法3: 检查工具是否来自 langchain_mcp_adapters
-        tool_module = type(tool).__module__
-        if "mcp" in tool_module.lower():
-            return True
-
-        return False
-
-    def _get_tool_server_name(self, tool: BaseTool) -> str:
-        """获取工具所属的 MCP 服务器名称.
-
-        Args:
-            tool: 工具实例.
-
-        Returns:
-            服务器名称.
-        """
-        # 方法1: 从属性获取
-        if hasattr(tool, "_mcp_server_name"):
-            return tool._mcp_server_name
-
-        # 方法2: 从名称解析
-        for server_name in self.config.mcp.servers.keys():
-            prefix = f"mcp_{server_name}_"
-            if tool.name.startswith(prefix):
-                return server_name
-
-        return "unknown"
-
-    def _get_tool_description(self, tool: BaseTool) -> str:
-        """获取工具描述.
-
-        Args:
-            tool: 工具实例.
-
-        Returns:
-            工具描述.
-        """
-        desc = getattr(tool, "description", "")
-        if not desc:
-            desc = t("capabilities.mcp.no_description")
-        # 截断过长的描述
-        if len(desc) > 100:
-            desc = desc[:97] + "..."
-        return desc
 
     def get_mcp_server_count(self) -> int:
         """获取已配置的 MCP 服务器数量.
@@ -260,14 +153,6 @@ class CapabilitiesBuilder:
             服务器数量.
         """
         return len([s for s in self.config.mcp.servers.values() if not s.disabled])
-
-    def get_mcp_tool_count(self) -> int:
-        """获取 MCP 工具数量.
-
-        Returns:
-            工具数量.
-        """
-        return len(self._get_mcp_tools())
 
 
 def build_capabilities_prompt(

@@ -251,3 +251,42 @@ class HeartbeatService:
             default_content = content or t("heartbeat.default_content")
             self.heartbeat_file.write_text(default_content, encoding="utf-8")
             logger.info(f"Created heartbeat file: {self.heartbeat_file}")
+
+    def update_interval(self, new_interval_s: int) -> None:
+        """动态更新检查间隔.
+
+        Args:
+            new_interval_s: 新的检查间隔（秒）
+        """
+        self.interval_s = new_interval_s
+        self._update_next_check()
+        logger.info(f"心跳间隔已更新: {new_interval_s}s")
+
+    def _get_cron_service(self):
+        """获取 CronService 实例.
+
+        Returns:
+            CronService 实例，未找到返回 None
+        """
+        try:
+            from finchbot.services.manager import ServiceManager
+            manager = ServiceManager.get_instance()
+            return manager.get_cron_service() if manager else None
+        except ImportError:
+            return None
+
+    def _build_pending_content(self, jobs: list) -> str:
+        """构建待处理任务描述.
+
+        Args:
+            jobs: 待处理任务列表
+
+        Returns:
+            任务描述字符串
+        """
+        lines = ["以下定时任务待执行：\n"]
+        for job in jobs:
+            msg = job.payload.message[:100] if hasattr(job, 'payload') else str(job)[:100]
+            name = job.name if hasattr(job, 'name') else 'unknown'
+            lines.append(f"- {name}: {msg}")
+        return "\n".join(lines)
