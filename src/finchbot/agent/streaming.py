@@ -106,24 +106,24 @@ async def stream_with_progress(
                     # LLM 输出流
                     if isinstance(data, tuple) and len(data) == 2:
                         message, metadata = data
-                        if hasattr(message, "content") and message.content:
+                        content = getattr(message, "content", None)
+                        if content:
                             if on_token:
-                                on_token(message.content)
-                            yield (message.content, False)
+                                on_token(content)
+                            yield (content, False)
 
-                elif mode == "custom":
+                elif mode == "custom" and isinstance(data, dict) and on_progress:
                     # 自定义进度数据
-                    if isinstance(data, dict):
-                        if on_progress:
-                            on_progress(data)
-                        yield (data, True)
+                    on_progress(data)
+                    yield (data, True)
 
             elif hasattr(chunk, "content"):
                 # 直接是消息对象
-                if chunk.content:
+                content = getattr(chunk, "content", None)
+                if content:
                     if on_token:
-                        on_token(chunk.content)
-                    yield (chunk.content, False)
+                        on_token(content)
+                    yield (content, False)
 
     except Exception as e:
         logger.error(f"Stream error: {e}")

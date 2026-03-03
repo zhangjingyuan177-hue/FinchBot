@@ -131,9 +131,11 @@ def _load_mcp_from_env() -> dict[str, MCPServerConfig]:
         elif field == "ENV" and len(parts) >= 3:
             # 处理 ENV__KEY 格式
             env_key = parts[2]
-            if servers[server_name].env is None:
-                servers[server_name].env = {}
-            servers[server_name].env[env_key] = value
+            server_env = servers[server_name].env
+            if server_env is None:
+                server_env = {}
+                servers[server_name].env = server_env
+            server_env[env_key] = value
 
     # 2. 加载敏感信息格式环境变量
     for server_name, mapping in MCP_SENSITIVE_ENV_VARS.items():
@@ -141,10 +143,12 @@ def _load_mcp_from_env() -> dict[str, MCPServerConfig]:
             value = get_mcp_env_var(suffix)
             if value:
                 if server_name not in servers:
-                    servers[server_name] = MCPServerConfig()
-                if servers[server_name].env is None:
-                    servers[server_name].env = {}
-                servers[server_name].env[config_key] = value
+                    servers[server_name] = MCPServerConfig(env={})
+                server_env = servers[server_name].env
+                if server_env is None:
+                    server_env = {}
+                    servers[server_name].env = server_env
+                server_env[config_key] = value
 
     return servers
 
@@ -177,6 +181,7 @@ def load_mcp_config(workspace: Path | None = None) -> dict[str, MCPServerConfig]
                     servers[name] = MCPServerConfig(**server_config)
             except Exception as e:
                 from loguru import logger
+
                 logger.warning(f"加载 MCP 配置失败: {e}")
 
     # 2. 加载环境变量（最高优先级，覆盖文件配置）
@@ -184,10 +189,12 @@ def load_mcp_config(workspace: Path | None = None) -> dict[str, MCPServerConfig]
     for name, config in env_servers.items():
         if name in servers:
             # 合并环境变量到现有配置
-            if servers[name].env is None:
-                servers[name].env = {}
+            server_env = servers[name].env
+            if server_env is None:
+                server_env = {}
+                servers[name].env = server_env
             if config.env:
-                servers[name].env.update(config.env)
+                server_env.update(config.env)
             # 如果环境变量定义了完整配置，则覆盖
             if config.command:
                 servers[name].command = config.command
@@ -211,16 +218,12 @@ def save_mcp_config(
         servers: MCP 服务器配置字典.
         workspace: 工作区路径.
     """
-    from finchbot.workspace import get_mcp_config_path
 
     mcp_path = get_mcp_config_path(workspace)
     mcp_path.parent.mkdir(parents=True, exist_ok=True)
 
     data = {
-        "servers": {
-            name: server.model_dump(exclude_none=True)
-            for name, server in servers.items()
-        }
+        "servers": {name: server.model_dump(exclude_none=True) for name, server in servers.items()}
     }
 
     mcp_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

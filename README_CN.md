@@ -99,37 +99,78 @@ flowchart TB
 ### 整体架构
 
 ```mermaid
-graph TB
-    classDef uiLayer fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
-    classDef coreLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef infraLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+flowchart TB
+    classDef input fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
+    classDef core fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef task fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+    classDef infra fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef service fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
 
-    subgraph UI [用户交互层]
-        CLI[CLI 界面]:::uiLayer
-        Channels[多平台通道<br/>Discord/钉钉/飞书/微信/邮件]:::uiLayer
+    subgraph Input [输入层]
+        direction LR
+        CLI[CLI 界面<br/>Rich 美化]:::input
+        LB[LangBot<br/>12+ 平台]:::input
+        Webhook[Webhook<br/>FastAPI]:::input
     end
 
-    subgraph Core [Agent 核心层]
-        Agent[LangGraph Agent<br/>决策引擎]:::coreLayer
-        Context[ContextBuilder<br/>上下文构建]:::coreLayer
-        Tools[ToolRegistry<br/>24 内置工具 + MCP]:::coreLayer
-        Memory[MemoryManager<br/>双层记忆]:::coreLayer
+    subgraph Core [核心层 - Agent 决策引擎]
+        direction TB
+        Agent[LangGraph Agent<br/>状态管理 · 循环控制]:::core
+        subgraph CoreModules [核心组件]
+            direction LR
+            Context[ContextBuilder<br/>上下文构建]:::core
+            Streaming[ProgressReporter<br/>流式输出]:::core
+        end
     end
 
-    subgraph Infra [基础设施层]
-        Storage[双层存储<br/>SQLite + VectorStore]:::infraLayer
-        LLM[LLM 提供商<br/>OpenAI/Anthropic/DeepSeek]:::infraLayer
+    subgraph Capabilities [能力层 - 三层扩展]
+        direction LR
+        BuiltIn[内置工具<br/>19 个开箱即用]:::core
+        MCP[MCP 扩展<br/>动态配置]:::core
+        Skills[技能系统<br/>自主创建]:::core
+    end
+
+    subgraph Task [任务层 - 三层调度]
+        direction LR
+        BG[后台任务<br/>异步执行]:::task
+        Cron[定时任务<br/>at/every/cron]:::task
+        Heart[心跳监控<br/>自主唤醒]:::task
+    end
+
+    subgraph Service [服务层 - 统一管理]
+        SM[ServiceManager<br/>协调后台服务]:::service
+    end
+
+    subgraph Memory [记忆层 - 双层存储]
+        direction LR
+        SQLite[(SQLite<br/>结构化存储)]:::infra
+        Vector[(VectorStore<br/>向量检索)]:::infra
+    end
+
+    subgraph LLM [模型层 - 多提供商]
+        direction LR
+        OpenAI[OpenAI<br/>GPT-4o]:::infra
+        Anthropic[Anthropic<br/>Claude]:::infra
+        DeepSeek[DeepSeek<br/>国产]:::infra
     end
 
     CLI --> Agent
-    Channels --> Agent
+    LB <--> Webhook
+    Webhook --> Agent
 
     Agent --> Context
-    Agent <--> Tools
+    Agent --> Streaming
+    Agent --> Capabilities
+    Agent --> Task
     Agent <--> Memory
-
-    Memory --> Storage
     Agent --> LLM
+
+    Task --> Service
+    Service --> SM
+
+    Context --> Memory
+    Memory --> SQLite
+    Memory --> Vector
 ```
 
 ### 数据流
@@ -204,38 +245,33 @@ flowchart LR
 
 | 层级 | 方式 | 自主性 | 说明 |
 |:---:|:---|:---:|:---|
-| 第一层 | 内置工具 | 开箱即用 | 24 个内置工具，无需配置即可使用 |
+| 第一层 | 内置工具 | 开箱即用 | 19 个内置工具，无需配置即可使用 |
 | 第二层 | MCP 配置 | Agent 自主配置 | 通过 `configure_mcp` 动态添加外部能力 |
 | 第三层 | 技能创建 | Agent 自主创建 | 通过 `skill-creator` 创建新技能 |
 
 #### 内置工具
 
-|        类别        | 工具              | 功能                        |
-| :----------------: | :---------------- | :-------------------------- |
-| **文件操作** | `read_file`     | 读取本地文件                |
-|                    | `write_file`    | 写入本地文件                |
-|                    | `edit_file`     | 编辑文件内容                |
-|                    | `list_dir`      | 列出目录内容                |
-| **网络能力** | `web_search`    | 联网搜索 (Tavily/Brave/DDG) |
-|                    | `web_extract`   | 网页内容提取                |
-| **记忆管理** | `remember`      | 主动存储记忆                |
-|                    | `recall`        | 检索记忆                    |
-|                    | `forget`        | 删除/归档记忆               |
-| **系统控制** | `exec`          | 安全执行 Shell 命令         |
-|                    | `session_title` | 管理会话标题                |
-| **配置管理** | `configure_mcp` | 动态配置 MCP 服务器（支持启用/禁用/添加/更新/删除/列出） |
-|                    | `refresh_capabilities` | 刷新能力描述文件   |
-|                    | `get_capabilities` | 获取当前能力描述        |
-|                    | `get_mcp_config_path` | 获取 MCP 配置路径    |
-| **后台任务** | `start_background_task` | 启动后台任务       |
-|                    | `check_task_status` | 检查任务状态         |
-|                    | `get_task_result` | 获取任务结果           |
-|                    | `cancel_task`   | 取消任务                    |
-| **定时任务** | `create_cron`   | 创建定时任务                |
-|                    | `list_crons`    | 列出所有定时任务            |
-|                    | `delete_cron`   | 删除定时任务                |
-|                    | `toggle_cron`   | 启用/禁用定时任务           |
-|                    | `run_cron_now`  | 立即执行定时任务            |
+| 类别 | 工具 | 功能 |
+| :--- | :--- | :--- |
+| **文件操作** | `read_file` | 读取本地文件 |
+| | `write_file` | 写入本地文件 |
+| | `edit_file` | 编辑文件内容 |
+| | `list_dir` | 列出目录内容 |
+| **网络能力** | `web_search` | 联网搜索 (Tavily/Brave/DDG) |
+| | `web_extract` | 网页内容提取 |
+| **记忆管理** | `remember` | 主动存储记忆 |
+| | `recall` | 检索记忆 |
+| | `forget` | 删除/归档记忆 |
+| **系统控制** | `exec` | 安全执行 Shell 命令 |
+| **配置管理** | `configure_mcp` | 动态配置 MCP 服务器 |
+| | `refresh_capabilities` | 刷新能力描述文件 |
+| **后台任务** | `start_background_task` | 启动后台任务 |
+| | `check_task_status` | 检查任务状态 |
+| | `get_task_result` | 获取任务结果 |
+| | `cancel_task` | 取消任务 |
+| **定时任务** | `create_cron` | 创建定时任务 |
+| | `list_crons` | 列出所有定时任务 |
+| | `delete_cron` | 删除定时任务 |
 
 ##### 网页搜索
 
@@ -395,13 +431,15 @@ FinchBot 实现了**四工具模式**用于异步任务执行：
 sequenceDiagram
     participant U as 用户
     participant A as 智能体
-    participant BG as 后台任务系统
-    participant S as 子智能体
+    participant SM as SubagentManager
+    participant SA as 子智能体<br/>(独立循环)
+    participant JM as JobManager
 
     U->>A: 执行长任务
-    A->>BG: start_background_task
-    BG->>S: 创建独立智能体
-    BG-->>A: 返回 job_id
+    A->>SM: start_background_task
+    SM->>JM: 创建任务 (pending)
+    SM->>SA: 创建独立 Agent 循环
+    JM-->>A: 返回 job_id
     A-->>U: 任务已启动 (ID: xxx)
     
     Note over U,A: 用户继续对话...
@@ -410,15 +448,20 @@ sequenceDiagram
     A-->>U: 正常回复
     
     U->>A: 任务进度？
-    A->>BG: check_task_status
-    BG-->>A: running
+    A->>SM: check_task_status
+    SM->>JM: 查询状态
+    JM-->>SM: running (迭代 5/15)
     A-->>U: 仍在执行...
     
-    S-->>BG: 任务完成
-    U->>A: 获取结果
-    A->>BG: get_task_result
-    BG-->>A: 返回结果
-    A-->>U: 展示任务结果
+    loop 最多 15 次迭代
+        SA->>SA: 工具调用
+        SA->>SA: LLM 推理
+    end
+    
+    SA-->>SM: 任务完成
+    SM->>SM: on_notify 回调
+    SM->>A: 注入结果到会话
+    A-->>U: 后台任务完成通知
 ```
 
 #### 定时任务
@@ -426,25 +469,65 @@ sequenceDiagram
 FinchBot 的定时任务系统让智能体能够自主创建和管理周期性任务：
 
 ```mermaid
-flowchart LR
-    classDef agent fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef system fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef action fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+flowchart TB
+    classDef cli fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
+    classDef service fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef tool fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef mode fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
 
-    Agent[智能体自主创建任务]:::agent --> Scheduler[Cron 调度器]:::system
-    Scheduler --> |触发| Execute[执行任务]:::action
-    Execute --> |完成| Notify[通知用户]:::action
-    Execute --> |失败| Retry[自动重试]:::action
+    subgraph Service [服务层]
+        CronService[CronService<br/>croniter 调度引擎]:::service
+        TZ[IANA 时区<br/>Asia/Shanghai 等]:::service
+    end
+
+    subgraph Modes [三种调度模式]
+        AtMode["at 模式<br/>一次性任务<br/>执行后删除"]:::mode
+        EveryMode["every 模式<br/>间隔任务<br/>每 N 秒执行"]:::mode
+        CronMode["cron 模式<br/>Cron 表达式<br/>精确时间调度"]:::mode
+    end
+
+    subgraph Tools [工具层]
+        Create[create_cron]:::tool
+        List[list_crons]:::tool
+        Delete[delete_cron]:::tool
+        Toggle[toggle_cron]:::tool
+        RunNow[run_cron_now]:::tool
+    end
+
+    subgraph Callbacks [回调机制]
+        OnDeliver[on_deliver<br/>消息传递回调]:::service
+    end
+
+    CronService --> TZ
+    CronService --> Modes
+    Modes --> Storage[(cron_jobs.json)]
+    
+    Agent[智能体] --> Tools
+    Tools --> Storage
+    
+    CronService --> OnDeliver
+    OnDeliver --> Agent
 ```
 
 **核心特性**：
 
 | 特性 | 说明 |
 | :--- | :--- |
+| **三种调度模式** | `at`（一次性）、`every`（间隔）、`cron`（Cron 表达式） |
+| **IANA 时区支持** | 指定时区如 `Asia/Shanghai`、`America/New_York` |
 | **Cron 表达式** | 支持标准 Cron 语法，灵活配置执行时间 |
-| **持久化存储** | 任务配置保存在 SQLite，重启后自动恢复 |
+| **持久化存储** | 任务配置保存在 JSON，重启后自动恢复 |
 | **自动重试** | 任务失败时自动重试，确保可靠性 |
 | **状态追踪** | 记录每次执行结果，便于审计和调试 |
+| **消息传递** | `on_deliver` 回调将结果注入会话 |
+
+**三种调度模式**：
+
+| 模式 | 参数 | 说明 | 示例 |
+| :--- | :--- | :--- | :--- |
+| **at** | `at="2025-01-15T10:30:00"` | 一次性任务，执行后删除 | 会议提醒 |
+| **every** | `every_seconds=3600` | 间隔任务，每 N 秒执行 | 每小时健康检查 |
+| **cron** | `cron_expr="0 9 * * *"` | Cron 表达式，精确调度 | 每天 9 点早报 |
 
 **常用 Cron 表达式**：
 
@@ -828,13 +911,54 @@ flowchart LR
     LangBot <--> Platforms
 ```
 
+#### Webhook 集成流程
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant P as 平台<br/>(QQ/微信等)
+    participant L as LangBot
+    participant W as Webhook<br/>FastAPI
+    participant A as FinchBot<br/>Agent
+    participant M as 记忆
+
+    U->>P: 发送消息
+    P->>L: 平台适配器
+    L->>W: POST /webhook
+    W->>W: 解析事件
+    W->>A: 创建/获取 Agent
+    A->>M: 召回上下文
+    M-->>A: 返回记忆
+    A->>A: LLM 推理
+    A->>M: 存储新记忆
+    A-->>W: 响应文本
+    W-->>L: WebhookResponse
+    L->>P: 发送回复
+    P->>U: 显示响应
+```
+
+#### 快速开始
+
 ```bash
-# 安装 LangBot
+# 终端 1：启动 FinchBot Webhook 服务器
+uv run finchbot webhook --port 8000
+
+# 终端 2：启动 LangBot
 uvx langbot
 
-# 访问 WebUI http://localhost:5300
-# 配置你的平台并连接到 FinchBot
+# 访问 LangBot WebUI http://localhost:5300
+# 配置你的平台并设置 Webhook URL：
+# http://localhost:8000/webhook
 ```
+
+#### Webhook 配置
+
+| 配置项 | 说明 | 默认值 |
+| :--- | :--- | :--- |
+| `langbot_url` | LangBot API URL | `http://localhost:5300` |
+| `langbot_api_key` | LangBot API Key | - |
+| `langbot_webhook_path` | Webhook 端点路径 | `/webhook` |
 
 更多详情请参阅 [LangBot 文档](https://docs.langbot.app)。
 
@@ -892,6 +1016,9 @@ uv run finchbot sessions
 
 # 第四步：管理定时任务
 uv run finchbot cron
+
+# 第五步：启动 Webhook 服务器（用于 LangBot 集成）
+uv run finchbot webhook --port 8000
 ```
 
 | 命令 | 功能 |
@@ -900,6 +1027,7 @@ uv run finchbot cron
 | `finchbot chat` | 开始或继续交互式对话 |
 | `finchbot sessions` | 全屏会话管理器 |
 | `finchbot cron` | 定时任务管理器 |
+| `finchbot webhook` | 启动 Webhook 服务器用于 LangBot 集成 |
 
 ### Docker 部署
 
@@ -961,7 +1089,21 @@ finchbot -vv chat      # DEBUG 及以上（调试模式）
 
 ### 添加工具
 
-**内置工具**：继承 `FinchTool` 基类，实现 `_run()` 方法，注册到 `ToolRegistry`。
+**内置工具**：使用 `@tool` 装饰器定义工具，自动注册到 `ToolRegistry` 单例。
+
+```python
+from finchbot.tools.decorator import tool
+from finchbot.tools.core import ToolCategory
+
+@tool(
+    name="my_tool",
+    description="工具描述",
+    category=ToolCategory.FILE,
+)
+async def my_tool(param: str) -> str:
+    """工具实现"""
+    return "result"
+```
 
 **MCP 工具**：在 `finchbot config` 中配置 MCP 服务器，或编辑 `~/.finchbot/workspace/config/mcp.json`。
 

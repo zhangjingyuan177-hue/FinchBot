@@ -94,6 +94,7 @@ config_help = "Manage FinchBot configuration"
 sessions_help = "Manage sessions"
 models_help = "Manage models"
 cron_help = "Manage scheduled tasks"
+channel_help = "Manage LangBot channel integration"
 
 [cli.status]
 enabled = "Enabled"
@@ -192,98 +193,6 @@ cron = "Scheduled Tasks"
 mcp = "MCP Tools"
 others = "Other Tools"
 no_description = "No description"
-
-[tools.read_file]
-name = "read_file"
-description = "Read text file content from the specified path. Only supports UTF-8 encoding, binary files may display garbled text."
-hint = "Recommended to use list_dir first to explore directory structure, then use read_file to read specific files."
-param_path = "File path, must be a complete path"
-error_not_found = "Error: File not found"
-error_not_file = "Error: Not a file"
-
-[tools.write_file]
-name = "write_file"
-description = "Write content to a file, creating parent directories if needed. Warning: If file exists, it will be overwritten!"
-hint = "Use for creating new files or completely rewriting existing files. To modify part of an existing file, use edit_file instead."
-param_path = "File path, parent directories will be created automatically if they don't exist"
-param_content = "Content to write to the file"
-
-[tools.edit_file]
-name = "edit_file"
-description = "Edit file by replacing text. old_text must match exactly (including spaces and newlines). If old_text appears multiple times, a warning will be returned asking for more context."
-hint = "Recommended to use read_file first to view file content, ensure old_text matches exactly before calling. Suitable for modifying specific parts of a file."
-param_path = "Path to the file to edit"
-param_old_text = "Text to be replaced, must match exactly (including spaces and newlines)"
-param_new_text = "New text to replace with"
-
-[tools.list_dir]
-name = "list_dir"
-description = "List directory contents, sorted alphabetically by name. 📁 indicates directory, 📄 indicates file."
-hint = "Use this tool to explore directory structure, then use read_file to read specific file contents."
-param_path = "Directory path"
-
-[tools.exec]
-name = "exec"
-description = "Execute shell commands and return output. Default timeout is 60 seconds, output over 10000 characters will be truncated. Includes safety checks, dangerous commands are prohibited."
-hint = "Prefer filesystem tools (read_file/write_file/edit_file) for file operations. Use exec only for batch operations, complex text processing, or system commands. Suitable for: batch file operations, complex text processing, system info queries, scenarios requiring pipes or redirects."
-param_command = "Shell command to execute"
-param_working_dir = "Optional working directory, defaults to current directory"
-
-[tools.web_search]
-name = "web_search"
-description = "Search the internet for latest information. Returns 5 results by default, supports Tavily, Brave Search, and DuckDuckGo with automatic fallback."
-hint = "Use when you need latest information, verify facts, or get external resources. Search queries should be concise and clear. For detailed content, first use web_search to get URLs, then use web_extract to get full content."
-param_query = "Search query, should be concise and clear"
-param_max_results = "Maximum number of results to return, default is 5"
-
-[tools.web_extract]
-name = "web_extract"
-description = "Extract content from web page URLs. Supports batch extraction (recommend no more than 5 URLs at a time). Content over 5000 characters will be truncated."
-hint = "Best practice: First use web_search to get relevant URLs, then use web_extract to get detailed content. Suitable for scenarios requiring reading full web page content."
-param_urls = "List of URLs to extract content from, supports batch (recommend no more than 5 at a time)"
-param_extract_depth = "Extraction depth: basic (fast extraction) or advanced (deep extraction, default)"
-
-[tools.remember]
-name = "remember"
-description = "Save important information to memory for later recall. Memories persist across sessions."
-hint = "Must call this tool when users share important info (name, preferences, contacts, schedule, etc.). Don't just say 'I'll remember', call the tool immediately."
-param_content = "Information to remember, should be concise and clear"
-param_category = "Category label: personal (personal info), preference (preferences), work (work-related), contact (contact info), goal (goals), schedule (schedule), general (general). Choose the most appropriate category based on content type."
-param_importance = "Importance score 0.0-1.0, default 0.5. Key info (name, important preferences) use 0.8-1.0, general info use 0.3-0.7, temporary info use 0.1-0.3"
-success = "Information saved to memory"
-
-[tools.recall]
-name = "recall"
-description = "Search and retrieve information from memory. Supports hybrid retrieval strategy based on query type (Weighted RRF)."
-hint = "Must call this tool first when users ask about their own information. Choose query_type based on the nature of the query: factual for specific facts, conceptual for abstract concepts, complex for multi-faceted queries, ambiguous for unclear queries, keyword_only for exact matches, semantic_only for semantic exploration."
-param_query = "Search query, can be keywords or natural language description"
-param_category = "Filter by category (optional), such as personal, work, preference, etc. If not specified, searches all categories."
-param_top_k = "Maximum number of results to return, default 5. Increase to get more relevant memories, decrease to get most relevant results."
-param_query_type = "Query type: keyword_only (1.0/0.0), semantic_only (0.0/1.0), factual (0.8/0.2), conceptual (0.2/0.8), complex (0.5/0.5), ambiguous (0.3/0.7)"
-param_similarity_threshold = "Similarity threshold 0.0-1.0, default 0.5. Used to filter semantically unrelated results. Increase (e.g., 0.7) when getting irrelevant results, decrease (e.g., 0.3) when getting too few results"
-not_found = "No matching memories found"
-
-[tools.forget]
-name = "forget"
-description = "Remove specified information from memory. Deletion is permanent and cannot be undone. Supports partial matching, e.g., entering 'email' will delete all memories containing 'email'."
-hint = "Call this tool when users explicitly request to forget, delete, or clear certain information. Cannot be undone after deletion, use with caution."
-param_pattern = "Content pattern to remove, supports partial matching. E.g., entering 'email' will delete all memories containing 'email'."
-success = "Memory entries removed"
-
-[tools.session_title]
-name = "session_title"
-description = "Get or set the current session title."
-hint = "Use when the conversation has 2-3 turns and the title is empty or needs updating."
-param_action = "Action type: get (get title) or set (set title)"
-param_title = "New title (required only for set), 5-15 characters, no punctuation"
-error_no_title = "Error: Title is required when setting title"
-error_invalid_action = "Error: Invalid action type, use get or set"
-error_too_short = "Error: Title must be at least 5 characters"
-no_session = "Current session not found"
-current = "Current title: {title} ({message_count} messages)"
-current_none = "No title (Session ID: {session_id}). {hint}"
-get_hint = "After 2-3 turns, use action=set to generate a title"
-set_success = "✅ Title set to: {title}"
 
 [session_title]
 role_user = "User"
@@ -575,103 +484,89 @@ You possess true autonomy - you can self-decide, self-execute, and self-extend.
 
 ### Self-Execution (Background Tasks)
 When you determine a task requires long execution time, you can autonomously start a background task:
-- `start_background_task`: Start a background task that runs in background while you continue the conversation
-- `check_task_status`: Check background task status (pending/running/completed/failed/cancelled)
+- `start_background_task`: Start a background task
+- `check_task_status`: Check background task status
 - `get_task_result`: Get completed task result
 - `cancel_task`: Cancel a running background task
-
-**Use Cases**:
-- Long research tasks (e.g., analyzing multiple documents, searching large amounts of information)
-- Batch data processing
-- Complex code generation
-
-**Example**:
-User: "Help me analyze these 100 GitHub repositories"
-Your decision: This is a long task, I should start a background task
-Your action: Call start_background_task(description="Analyze 100 GitHub repositories")
+- `list_background_tasks`: List all background tasks
 
 ### Self-Planning (Scheduled Tasks)
-You can autonomously create scheduled tasks to set future execution plans:
+You can autonomously create scheduled tasks for future execution:
 - `create_cron`: Create a scheduled task (supports standard cron expressions)
 - `list_crons`: List all scheduled tasks
 - `delete_cron`: Delete a scheduled task
 - `toggle_cron`: Enable/disable a scheduled task
-
-**Cron Expression Format**: `minute hour day month weekday`
-- `0 9 * * *` - Daily at 9 AM
-- `0 */2 * * *` - Every 2 hours
-- `30 18 * * 1-5` - Weekdays at 6:30 PM
-- `0 0 1 * *` - First day of month at midnight
-
-**Use Cases**:
-- User says "remind me every day...", "every week..." or similar time-related requests
-- Periodic tasks (e.g., scheduled checks, scheduled reports)
-
-**Example**:
-User: "Remind me to check email every morning at 9"
-Your decision: This is a scheduled task request
-Your action: Call create_cron(name="Morning email reminder", schedule="0 9 * * *", message="Please check today's email")
-
-### Self-Monitoring (Heartbeat Service)
-The system has a heartbeat service that periodically checks the HEARTBEAT.md file. You can add to-do items to this file, and the heartbeat service will periodically check and remind you.
-
-Heartbeat file location: HEARTBEAT.md in the workspace root
-
-**Use Cases**:
-- Record items that need periodic checking
-- Set up automatic trigger conditions
+- `run_cron_now`: Execute a scheduled task immediately
 
 ### Self-Extension (MCP Configuration)
 You can autonomously configure MCP servers to extend your capabilities:
-- `configure_mcp`: Add/modify/remove MCP servers
+- `configure_mcp`: Add/modify/delete/enable/disable MCP servers
 - `refresh_capabilities`: Refresh capabilities description file
 - `get_capabilities`: Get current capabilities description
 - `get_mcp_config_path`: Get MCP configuration file path
 
-**Use Cases**:
-- Discover you need a certain capability (e.g., database operations, browser automation)
-- Search for available MCP servers
-- Autonomously configure and start using new tools
+## File System Tools
+- `read_file`: Read text file content from specified path
+- `write_file`: Write content to file, creating parent directories automatically
+- `edit_file`: Edit file by replacing text
+- `list_dir`: List directory contents
 
-**Example**:
-User: "Help me analyze this SQLite database"
-Your judgment: Currently no database operation tools
-Your action: Call configure_mcp(action="add", server_name="sqlite", ...) to configure SQLite MCP
-Then: Use the newly acquired database tools to complete the task
+### File Access Scope ⚠️
+For security, file operation tools can only access specific directories:
+- **Workspace**: Workspace directory and its subdirectories (see "Runtime Environment" below for path)
+- **Built-in Skills**: Built-in skills directory (skill-creator, summarize, task-management, etc.)
 
-MCP configuration is stored in the workspace's config/mcp.json file.
+If user requests to access files outside these directories, inform them of the allowed access scope and suggest copying files to the workspace.
 
-## Agent Self-Configuration Capabilities
-You can use the following tools to dynamically configure yourself:
-- `configure_mcp`: Add/modify/remove MCP servers
-- `refresh_capabilities`: Refresh the capabilities description file
-- `get_capabilities`: Get current capabilities description
-- `get_mcp_config_path`: Get MCP configuration file path
+## Shell Execution Tool
+- `exec`: Execute shell commands and return output (with safety checks and timeout limits)
 
-MCP configuration is stored in the workspace's config/mcp.json file.
+### Shell Command Platform Guide ⚠️
+Current platform info is injected at runtime (see "Runtime Environment" section below).
 
-## File System Tool Guidelines
-- `list_dir`: Explore directory structure to understand what files exist
-- `read_file`: Read file content to understand file details
-- `write_file`: Create new files or completely overwrite existing files (use with caution, will overwrite)
-- `edit_file`: Modify specific content in existing files (old_text must match exactly)
-- Best practice: First list_dir to understand structure, then read_file to view content, finally use write_file or edit_file based on needs
+Use correct command syntax based on platform:
 
-## Web Search Tool Guidelines
-- `web_search`: Get latest information, verify facts, find external resources
-- `web_extract`: Extract detailed content from specific URLs
-- Best practice: First use web_search to find relevant URLs, then use web_extract to get detailed content
+**Windows Platform Commands**:
+- List files: `dir` (not `ls`)
+- Delete file: `del filename` or `Remove-Item filename`
+- Delete directory: `rmdir /s dirname` or `Remove-Item -Recurse dirname`
+- Copy file: `copy src dst` or `Copy-Item src dst`
+- Move file: `move src dst` or `Move-Item src dst`
+- Find files: `dir /s /b pattern` or `Get-ChildItem -Recurse`
+- File content: `type filename` (not `cat`)
+- Count lines: `find /c /v "" filename`
+- Environment: `echo %VAR%` (CMD) or `$env:VAR` (PowerShell)
 
-## Execution Tool Guidelines
-- `exec`: Execute shell commands for complex operations
-- Prefer file system tools for file operations, only use exec for batch operations or complex processing
-- Note: exec has 60-second timeout and output length limits
+**Unix/Linux/macOS Platform Commands**:
+- List files: `ls -la`
+- Delete file: `rm filename`
+- Delete directory: `rm -rf dirname`
+- Copy file: `cp src dst`
+- Move file: `mv src dst`
+- Find files: `find . -name pattern`
+- File content: `cat filename`
+- Count lines: `wc -l filename`
+- Environment: `echo $VAR`
+
+**Important**: Before executing commands, confirm current platform and use corresponding command syntax!
+
+## Network Tools
+- `web_search`: Search the internet for latest information
+- `web_extract`: Extract content from web page URLs
+
+## Memory Tools
+- `remember`: Save important information to memory
+- `recall`: Search and retrieve information from memory
+- `forget`: Delete specified information from memory
+
+## Session Tool
+- `session_title`: Get or set current session title
 
 ## Tool Usage Principles
 - Proactively use tools to complete tasks, don't just say "I'll remember"
-- Call the remember tool immediately when users say keywords like "remember", "don't forget"
-- Check for relevant memories before answering questions
-- If a tool call fails, analyze the error message and try alternative methods
+- When user says "remember", "don't forget" etc., immediately call the remember tool
+- Before answering questions, check if there are relevant memories
+- If tool call fails, analyze the error and try other approaches
 """
 
 memory_guide_md = """# Memory System Guide (For AI)
@@ -744,25 +639,13 @@ I am FinchBot, a lightweight, privacy-focused AI assistant.
 
 [capabilities.mcp]
 title = "MCP (Model Context Protocol) Configuration"
-configured_servers = "You have the following MCP servers configured, providing additional tool capabilities:"
-available_tools = "Available MCP Tools"
-tools_intro = "The following tools are from MCP servers, extending your capabilities:"
-how_to_add = "How to Add MCP Servers"
-add_steps = """Users can add MCP servers by:
-1. Running `finchbot config` command
-2. Selecting 'MCP Servers' option
-3. Choosing a preset template (e.g., Filesystem, GitHub, Brave Search) or custom configuration"""
+configured_servers = "Configured MCP servers:"
 no_description = "No description"
 
 [capabilities.channel]
 title = "Message Channels"
 langbot_enabled = "LangBot platform integration is currently enabled."
 langbot_url = "Configuration URL: https://langbot.app"
-langbot_migration = "Message channel functionality has been migrated to the LangBot platform."
-langbot_steps = """For multi-platform messaging support:
-1. Visit https://langbot.app
-2. Configure desired platforms
-3. Enable `langbot_enabled: true` in configuration"""
 
 [capabilities.status]
 enabled = "Enabled"
@@ -771,17 +654,9 @@ disabled = "Disabled"
 [capabilities.extension]
 title = "How to Extend My Capabilities"
 add_mcp = "Add MCP Server"
-mcp_steps = """1. Run `finchbot config`
-2. Select "MCP Servers"
-3. Choose a preset template or custom configuration
-
-Or use the `configure_mcp` tool for dynamic configuration."""
-mcp_config_location = "MCP configuration is stored in the workspace's config/mcp.json file"
-add_skill = "Add Skill"
-skill_steps = """1. Create a new directory in the workspace's `skills/` folder
-2. Create a `SKILL.md` file describing the skill"""
+mcp_steps = """Use the `configure_mcp` tool to dynamically configure MCP servers."""
 refresh_capabilities = "Refresh Capabilities"
-refresh_hint = "Use the `refresh_capabilities` tool to refresh the CAPABILITIES.md file"
+refresh_hint = "Use the `refresh_capabilities` tool to refresh the capabilities description file"
 
 [workspace]
 title = "Workspace Structure"
@@ -1039,3 +914,90 @@ Call the heartbeat tool to report your decision:
 text = """Check the following HEARTBEAT.md content:
 
 {content}"""
+
+# ========================================
+# Channel Management
+# ========================================
+
+[channel]
+title = "📡 Channel Management (LangBot)"
+not_set = "Not Set"
+
+[channel.columns]
+setting = "Setting"
+value = "Value"
+
+[channel.items]
+status = "Connection Status"
+enabled = "Enabled"
+url = "LangBot URL"
+api_key = "API Key"
+webhook = "Webhook Path"
+
+[channel.status]
+enabled = "Enabled"
+disabled = "Disabled"
+connected = "Connected"
+disconnected = "Disconnected"
+checking = "Checking..."
+error = "Connection Error"
+
+[channel.help]
+navigate = "Navigate"
+detail = "View Details"
+t_test = "Test Connection"
+c_config = "Configure"
+b_bots = "Bot List"
+w_webhook = "Webhook Info"
+q_quit = "Quit"
+any_key_back = "Press any key to go back"
+
+[channel.actions]
+quit = "Exited channel management"
+testing = "Testing connection"
+test_success = "Connection successful! LangBot is available"
+test_failed = "Connection failed. Please check URL and service status"
+test_error = "Connection test error: {error}"
+toggle_success = "Status toggled"
+updated = "Updated"
+fetching_bots = "Fetching bot list"
+no_bots = "No bots configured"
+fetch_error = "Failed to fetch bot list: {error}"
+
+[channel.config]
+title = "LangBot Configuration"
+toggle = "Enable/Disable"
+set_url = "Set URL"
+set_api_key = "Set API Key"
+url_prompt = "Enter LangBot URL"
+api_key_prompt = "Enter API Key"
+
+[channel.bots]
+name = "Bot Name"
+platform = "Platform"
+status = "Status"
+
+[channel.webhook]
+title = "Webhook Configuration"
+description = "Configure this Webhook URL in LangBot to receive and process message events."
+url = "Webhook URL"
+method = "Method"
+format = "Format"
+langbot_config = "LangBot Configuration Steps"
+step1 = "Login to LangBot WebUI"
+step2 = "Go to 'API Integration' → 'Webhooks'"
+step3 = "Create new Webhook with the URL above"
+
+# ========================================
+# CLI Channel Commands
+# ========================================
+
+[cli.channel]
+host_help = "Webhook server listen address"
+port_help = "Webhook server listen port"
+not_enabled = "LangBot integration is not enabled. Please enable it in configuration."
+run_config = "Run 'finchbot channel' to configure"
+starting = "Starting FinchBot Webhook Service"
+listening = "Listening on: http://{host}:{port}"
+endpoint = "Webhook endpoint: {path}"
+stopped = "Service stopped"

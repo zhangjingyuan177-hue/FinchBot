@@ -40,6 +40,8 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "aiosqlite>=0.20.0",
     "croniter>=6.0.0,<7.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
 ]
 
 [project.optional-dependencies]

@@ -99,37 +99,78 @@ flowchart TB
 ### Overall Architecture
 
 ```mermaid
-graph TB
-    classDef uiLayer fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
-    classDef coreLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef infraLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+flowchart TB
+    classDef input fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
+    classDef core fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef task fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+    classDef infra fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef service fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
 
-    subgraph UI [User Interaction Layer]
-        CLI[CLI Interface]:::uiLayer
-        Channels[Multi-platform Channels<br/>Discord/DingTalk/Feishu/WeChat/Email]:::uiLayer
+    subgraph Input [Input Layer]
+        direction LR
+        CLI[CLI Interface<br/>Rich UI]:::input
+        LB[LangBot<br/>12+ Platforms]:::input
+        Webhook[Webhook<br/>FastAPI]:::input
     end
 
-    subgraph Core [Agent Core]
-        Agent[LangGraph Agent<br/>Decision Engine]:::coreLayer
-        Context[ContextBuilder<br/>Context Building]:::coreLayer
-        Tools[ToolRegistry<br/>24 Built-in Tools + MCP]:::coreLayer
-        Memory[MemoryManager<br/>Dual-layer Memory]:::coreLayer
+    subgraph Core [Core Layer - Agent Decision Engine]
+        direction TB
+        Agent[LangGraph Agent<br/>State Management · Loop Control]:::core
+        subgraph CoreModules [Core Components]
+            direction LR
+            Context[ContextBuilder<br/>Context Building]:::core
+            Streaming[ProgressReporter<br/>Streaming Output]:::core
+        end
     end
 
-    subgraph Infra [Infrastructure Layer]
-        Storage[Dual-layer Storage<br/>SQLite + VectorStore]:::infraLayer
-        LLM[LLM Providers<br/>OpenAI/Anthropic/DeepSeek]:::infraLayer
+    subgraph Capabilities [Capability Layer - Three-Tier Extension]
+        direction LR
+        BuiltIn[Built-in Tools<br/>19 Ready-to-Use]:::core
+        MCP[MCP Extension<br/>Dynamic Config]:::core
+        Skills[Skill System<br/>Self-Create]:::core
+    end
+
+    subgraph Task [Task Layer - Three-Tier Scheduling]
+        direction LR
+        BG[Background Tasks<br/>Async Execution]:::task
+        Cron[Scheduled Tasks<br/>at/every/cron]:::task
+        Heart[Heartbeat Monitor<br/>Self-Wakeup]:::task
+    end
+
+    subgraph Service [Service Layer - Unified Management]
+        SM[ServiceManager<br/>Coordinate Services]:::service
+    end
+
+    subgraph Memory [Memory Layer - Dual Storage]
+        direction LR
+        SQLite[(SQLite<br/>Structured Storage)]:::infra
+        Vector[(VectorStore<br/>Vector Retrie)]:::infra
+    end
+
+    subgraph LLM [Model Layer - Multi-Provider]
+        direction LR
+        OpenAI[OpenAI<br/>GPT-4o]:::infra
+        Anthropic[Anthropic<br/>Claude]:::infra
+        DeepSeek[DeepSeek<br/>Domestic]:::infra
     end
 
     CLI --> Agent
-    Channels --> Agent
+    LB <--> Webhook
+    Webhook --> Agent
 
     Agent --> Context
-    Agent <--> Tools
+    Agent --> Streaming
+    Agent --> Capabilities
+    Agent --> Task
     Agent <--> Memory
-
-    Memory --> Storage
     Agent --> LLM
+
+    Task --> Service
+    Service --> SM
+
+    Context --> Memory
+    Memory --> SQLite
+    Memory --> Vector
 ```
 
 ### Data Flow
@@ -204,38 +245,33 @@ flowchart LR
 
 | Layer | Method | Autonomy | Description |
 |:---:|:---|:---:|:---|
-| Layer 1 | Built-in Tools | Ready to use | 24 built-in tools, no configuration needed |
+| Layer 1 | Built-in Tools | Ready to use | 19 built-in tools, no configuration needed |
 | Layer 2 | MCP Config | Agent self-config | Dynamically add external capabilities via `configure_mcp` |
 | Layer 3 | Skill Creation | Agent self-create | Create new skills via `skill-creator` |
 
 #### Built-in Tools
 
-|      Category      | Tool              | Function                      |
-| :----------------: | :---------------- | :---------------------------- |
-| **File Ops** | `read_file`     | Read local files              |
-|                    | `write_file`    | Write local files             |
-|                    | `edit_file`     | Edit file content             |
-|                    | `list_dir`      | List directory contents       |
-| **Network** | `web_search`    | Web search (Tavily/Brave/DDG) |
-|                    | `web_extract`   | Web content extraction        |
-|  **Memory**  | `remember`      | Proactively store memories    |
-|                    | `recall`        | Retrieve memories             |
-|                    | `forget`        | Delete/archive memories       |
-|  **System**  | `exec`          | Secure shell execution        |
-|                    | `session_title` | Manage session titles         |
-|  **Configuration**  | `configure_mcp` | Dynamically configure MCP servers (enable/disable/add/update/remove/list) |
-|                    | `refresh_capabilities` | Refresh capabilities file |
-|                    | `get_capabilities` | Get current capabilities  |
-|                    | `get_mcp_config_path` | Get MCP config path   |
+| Category | Tool | Function |
+| :--- | :--- | :--- |
+| **File Ops** | `read_file` | Read local files |
+| | `write_file` | Write local files |
+| | `edit_file` | Edit file content |
+| | `list_dir` | List directory contents |
+| **Web** | `web_search` | Web search (Tavily/Brave/DDG) |
+| | `web_extract` | Extract web content |
+| **Memory** | `remember` | Store memory |
+| | `recall` | Retrieve memory |
+| | `forget` | Delete/archive memory |
+| **System** | `exec` | Execute shell commands safely |
+| **Config** | `configure_mcp` | Configure MCP servers dynamically |
+| | `refresh_capabilities` | Refresh capability description |
 | **Background** | `start_background_task` | Start background task |
-|                    | `check_task_status` | Check task status     |
-|                    | `get_task_result` | Get task result         |
-|                    | `cancel_task`   | Cancel task                  |
-| **Scheduled** | `create_cron`   | Create scheduled task        |
-|                    | `list_crons`    | List all scheduled tasks     |
-|                    | `delete_cron`   | Delete scheduled task        |
-|                    | `toggle_cron`   | Enable/disable scheduled task |
-|                    | `run_cron_now`  | Execute scheduled task now   |
+| | `check_task_status` | Check task status |
+| | `get_task_result` | Get task result |
+| | `cancel_task` | Cancel task |
+| **Schedule** | `create_cron` | Create scheduled task |
+| | `list_crons` | List all scheduled tasks |
+| | `delete_cron` | Delete scheduled task |
 
 ##### Web Search
 
@@ -395,13 +431,15 @@ FinchBot implements a **four-tool pattern** for asynchronous task execution:
 sequenceDiagram
     participant U as User
     participant A as Agent
-    participant BG as Background Task System
-    participant S as Subagent
+    participant SM as SubagentManager
+    participant SA as Subagent<br/>(Independent Loop)
+    participant JM as JobManager
 
     U->>A: Execute long task
-    A->>BG: start_background_task
-    BG->>S: Create independent Agent
-    BG-->>A: Return job_id
+    A->>SM: start_background_task
+    SM->>JM: Create task (pending)
+    SM->>SA: Create independent Agent loop
+    JM-->>A: Return job_id
     A-->>U: Task started (ID: xxx)
     
     Note over U,A: User continues dialog...
@@ -410,15 +448,20 @@ sequenceDiagram
     A-->>U: Normal response
     
     U->>A: Task progress?
-    A->>BG: check_task_status
-    BG-->>A: running
+    A->>SM: check_task_status
+    SM->>JM: Query status
+    JM-->>SM: running (iteration 5/15)
     A-->>U: Still executing...
     
-    S-->>BG: Task complete
-    U->>A: Get result
-    A->>BG: get_task_result
-    BG-->>A: Return result
-    A-->>U: Task result display
+    loop Max 15 iterations
+        SA->>SA: Tool call
+        SA->>SA: LLM reasoning
+    end
+    
+    SA-->>SM: Task complete
+    SM->>SM: on_notify callback
+    SM->>A: Inject result to session
+    A-->>U: Background task complete
 ```
 
 #### Scheduled Tasks
@@ -426,25 +469,65 @@ sequenceDiagram
 FinchBot's scheduled task system enables agents to autonomously create and manage periodic tasks:
 
 ```mermaid
-flowchart LR
-    classDef agent fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef system fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef action fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+flowchart TB
+    classDef cli fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
+    classDef service fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef tool fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef mode fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
 
-    Agent[Agent Creates Task]:::agent --> Scheduler[Cron Scheduler]:::system
-    Scheduler --> |Trigger| Execute[Execute Task]:::action
-    Execute --> |Success| Notify[Notify User]:::action
-    Execute --> |Failure| Retry[Auto Retry]:::action
+    subgraph Service [Service Layer]
+        CronService[CronService<br/>croniter Engine]:::service
+        TZ[IANA Timezone<br/>Asia/Shanghai etc.]:::service
+    end
+
+    subgraph Modes [Three Scheduling Modes]
+        AtMode["at Mode<br/>One-time Task<br/>Delete After Run"]:::mode
+        EveryMode["every Mode<br/>Interval Task<br/>Every N Seconds"]:::mode
+        CronMode["cron Mode<br/>Cron Expression<br/>Precise Scheduling"]:::mode
+    end
+
+    subgraph Tools [Tool Layer]
+        Create[create_cron]:::tool
+        List[list_crons]:::tool
+        Delete[delete_cron]:::tool
+        Toggle[toggle_cron]:::tool
+        RunNow[run_cron_now]:::tool
+    end
+
+    subgraph Callbacks [Callback Mechanism]
+        OnDeliver[on_deliver<br/>Message Delivery]:::service
+    end
+
+    CronService --> TZ
+    CronService --> Modes
+    Modes --> Storage[(cron_jobs.json)]
+    
+    Agent[Agent] --> Tools
+    Tools --> Storage
+    
+    CronService --> OnDeliver
+    OnDeliver --> Agent
 ```
 
 **Core Features**:
 
 | Feature | Description |
 | :--- | :--- |
+| **Three Scheduling Modes** | `at` (one-time), `every` (interval), `cron` (Cron expression) |
+| **IANA Timezone Support** | Specify timezone like `Asia/Shanghai`, `America/New_York` |
 | **Cron Expressions** | Standard Cron syntax for flexible scheduling |
-| **Persistent Storage** | Tasks saved in SQLite, auto-recover after restart |
+| **Persistent Storage** | Tasks saved in JSON, auto-recover after restart |
 | **Auto Retry** | Automatic retry on failure for reliability |
 | **Status Tracking** | Execution history for audit and debugging |
+| **Message Delivery** | `on_deliver` callback injects results into session |
+
+**Three Scheduling Modes**:
+
+| Mode | Parameter | Description | Example |
+| :--- | :--- | :--- | :--- |
+| **at** | `at="2025-01-15T10:30:00"` | One-time task, deleted after execution | Meeting reminder |
+| **every** | `every_seconds=3600` | Interval task, runs every N seconds | Health check every hour |
+| **cron** | `cron_expr="0 9 * * *"` | Cron expression for precise scheduling | Daily report at 9 AM |
 
 **Common Cron Expressions**:
 
@@ -828,13 +911,54 @@ flowchart LR
     LangBot <--> Platforms
 ```
 
+#### Webhook Integration Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant P as Platform<br/>(QQ/WeChat/etc)
+    participant L as LangBot
+    participant W as Webhook<br/>FastAPI
+    participant A as FinchBot<br/>Agent
+    participant M as Memory
+
+    U->>P: Send message
+    P->>L: Platform adapter
+    L->>W: POST /webhook
+    W->>W: Parse event
+    W->>A: Create/get Agent
+    A->>M: Recall context
+    M-->>A: Return memories
+    A->>A: LLM reasoning
+    A->>M: Store new memories
+    A-->>W: Response text
+    W-->>L: WebhookResponse
+    L->>P: Send reply
+    P->>U: Display response
+```
+
+#### Quick Start with LangBot
+
 ```bash
-# Install LangBot
+# Terminal 1: Start FinchBot Webhook Server
+uv run finchbot webhook --port 8000
+
+# Terminal 2: Start LangBot
 uvx langbot
 
-# Access WebUI at http://localhost:5300
-# Configure your platforms and connect to FinchBot
+# Access LangBot WebUI at http://localhost:5300
+# Configure your platform and set webhook URL:
+# http://localhost:8000/webhook
 ```
+
+#### Webhook Configuration
+
+| Setting | Description | Default |
+| :--- | :--- | :--- |
+| `langbot_url` | LangBot API URL | `http://localhost:5300` |
+| `langbot_api_key` | LangBot API Key | - |
+| `langbot_webhook_path` | Webhook endpoint path | `/webhook` |
 
 For more details, see [LangBot Documentation](https://docs.langbot.app).
 
@@ -892,6 +1016,9 @@ uv run finchbot sessions
 
 # Step 4: Manage scheduled tasks
 uv run finchbot cron
+
+# Step 5: Start webhook server (for LangBot integration)
+uv run finchbot webhook --port 8000
 ```
 
 | Command | Function |
@@ -900,6 +1027,7 @@ uv run finchbot cron
 | `finchbot chat` | Start or continue an interactive conversation |
 | `finchbot sessions` | Full-screen session manager |
 | `finchbot cron` | Scheduled task manager |
+| `finchbot webhook` | Start webhook server for LangBot integration |
 
 ### Docker Deployment
 
@@ -961,7 +1089,21 @@ finchbot -vv chat      # DEBUG and above (debug mode)
 
 ### Adding Tools
 
-**Built-in Tools**: Inherit `FinchTool` base class, implement `_run()` method, register with `ToolRegistry`.
+**Built-in Tools**: Use the `@tool` decorator to define tools, automatically registered to the `ToolRegistry` singleton.
+
+```python
+from finchbot.tools.decorator import tool
+from finchbot.tools.core import ToolCategory
+
+@tool(
+    name="my_tool",
+    description="Tool description",
+    category=ToolCategory.FILE,
+)
+async def my_tool(param: str) -> str:
+    """Tool implementation"""
+    return "result"
+```
 
 **MCP Tools**: Configure MCP servers in `finchbot config`, or edit `~/.finchbot/workspace/config/mcp.json`.
 

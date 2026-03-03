@@ -12,7 +12,7 @@ from typing import Any
 
 LOCALES_DIR = Path(__file__).parent / "locales"
 
-SUPPORTED_LANGUAGES = ["en-US", "zh-CN", "zh-HK"]
+SUPPORTED_LANGUAGES = ["en-US", "zh-CN"]
 
 DEFAULT_LANGUAGE = "en-US"
 
@@ -72,10 +72,8 @@ class I18n:
 
         if lang.lower() in ["zh", "zh-cn", "zh-hans", "zh-hans-cn"]:
             return "zh-CN"
-        if lang.lower() in ["zh-hk", "zh-hant", "zh-hant-hk"]:
-            return "zh-HK"
-        if lang.lower() in ["zh-tw", "zh-hant-tw"]:
-            return "zh-HK"
+        if lang.lower() in ["zh-hk", "zh-hant", "zh-hant-hk", "zh-tw", "zh-hant-tw"]:
+            return "zh-CN"
         if lang.lower().startswith("en"):
             return "en-US"
         if lang.lower() in SUPPORTED_LANGUAGES:
@@ -304,9 +302,9 @@ def _normalize_locale(lang: str) -> str:
 def _langid_to_locale(lang_id: int) -> str:
     """将 Windows 语言 ID 转换为语言代码."""
     lang_map = {
-        0x0404: "zh-HK",
+        0x0404: "zh-CN",
         0x0804: "zh-CN",
-        0x0C04: "zh-HK",
+        0x0C04: "zh-CN",
         0x1004: "zh-CN",
         0x1404: "zh-CN",
         0x0409: "en-US",

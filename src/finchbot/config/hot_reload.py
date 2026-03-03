@@ -1,11 +1,24 @@
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
-from watchdog.events import FileSystemEvent, FileSystemEventHandler
-from watchdog.observers import Observer
+
+if TYPE_CHECKING:
+    from watchdog.events import FileSystemEvent
+    from watchdog.observers import Observer
+
+try:
+    from watchdog.events import FileSystemEvent, FileSystemEventHandler
+    from watchdog.observers import Observer
+
+    WATCHDOG_AVAILABLE = True
+except ImportError:
+    WATCHDOG_AVAILABLE = False
+    FileSystemEvent = None  # type: ignore
+    FileSystemEventHandler = object  # type: ignore
+    Observer = None  # type: ignore
 
 
 class ConfigHotReloader:
@@ -19,9 +32,7 @@ class ConfigHotReloader:
     """
 
     def __init__(
-        self,
-        config_path: Path,
-        on_reload: Callable[[dict[str, Any]], None] | None = None
+        self, config_path: Path, on_reload: Callable[[dict[str, Any]], None] | None = None
     ):
         self.config_path = config_path
         self.on_reload = on_reload
@@ -35,6 +46,10 @@ class ConfigHotReloader:
         if self._running:
             return
 
+        if not WATCHDOG_AVAILABLE:
+            logger.warning("watchdog not installed, hot reload disabled")
+            return
+
         if not self.config_path.exists():
             logger.warning(f"Config file not found: {self.config_path}")
             return
@@ -42,13 +57,9 @@ class ConfigHotReloader:
         self._observer = Observer()
         handler = _ConfigEventHandler(self._on_file_change)
 
-        self._observer.schedule(
-            handler,
-            str(self.config_path.parent),
-            recursive=False
-        )
-
-        self._observer.start()
+        if self._observer:
+            self._observer.schedule(handler, str(self.config_path.parent), recursive=False)
+            self._observer.start()
         self._running = True
         logger.info(f"Config hot reload started for {self.config_path}")
 
@@ -67,7 +78,7 @@ class ConfigHotReloader:
         if not event.src_path.endswith(str(self.config_path)):
             return
 
-        if event.event_type not in ('modified', 'created'):
+        if event.event_type not in ("modified", "created"):
             return
 
         now = time.time()
@@ -89,7 +100,7 @@ class ConfigHotReloader:
         """Load configuration from file."""
         import yaml
 
-        with open(self.config_path, encoding='utf-8') as f:
+        with open(self.config_path, encoding="utf-8") as f:
             return yaml.safe_load(f)
 
 
@@ -131,7 +142,7 @@ class ConfigManager:
             logger.warning(f"Config file not found: {self.config_path}")
             return {}
 
-        with open(self.config_path, encoding='utf-8') as f:
+        with open(self.config_path, encoding="utf-8") as f:
             self._config = yaml.safe_load(f) or {}
 
         self._apply_env_overrides()
@@ -143,9 +154,9 @@ class ConfigManager:
         import os
 
         env_mappings = {
-            'FINCHBOT_DEFAULT_MODEL': 'default_model',
-            'FINCHBOT_LOG_LEVEL': 'logging.level',
-            'FINCHBOT_DEBUG': 'debug',
+            "FINCHBOT_DEFAULT_MODEL": "default_model",
+            "FINCHBOT_LOG_LEVEL": "logging.level",
+            "FINCHBOT_DEBUG": "debug",
         }
 
         for env_key, config_path in env_mappings.items():
@@ -155,7 +166,7 @@ class ConfigManager:
 
     def _set_nested(self, path: str, value: Any) -> None:
         """Set a nested configuration value."""
-        keys = path.split('.')
+        keys = path.split(".")
         current = self._config
 
         for key in keys[:-1]:
@@ -167,7 +178,7 @@ class ConfigManager:
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a configuration value."""
-        keys = key.split('.')
+        keys = key.split(".")
         current = self._config
 
         for k in keys:
@@ -196,15 +207,13 @@ class ConfigManager:
 
     def start_hot_reload(self) -> None:
         """Start hot reload."""
+
         def on_reload(config: dict[str, Any]) -> None:
             self._config = config
             self._apply_env_overrides()
             self._notify_subscribers()
 
-        self._reloader = ConfigHotReloader(
-            self.config_path,
-            on_reload=on_reload
-        )
+        self._reloader = ConfigHotReloader(self.config_path, on_reload=on_reload)
         self._reloader.start()
 
     def stop_hot_reload(self) -> None:

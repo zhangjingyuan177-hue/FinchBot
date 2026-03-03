@@ -611,7 +611,6 @@ text = i18n.t("cli.chat.session", session_id="abc123")
 | Language Code | Language Name |
 |:---|:---|
 | `zh-CN` | Simplified Chinese |
-| `zh-HK` | Traditional Chinese |
 | `en-US` | English |
 
 ---
@@ -933,6 +932,8 @@ class JobManager:
     @classmethod
     def get_instance(cls) -> JobManager: ...
     
+    def set_subagent_manager(self, manager: SubagentManager) -> None: ...
+    
     async def start_task(
         self,
         task_description: str,
@@ -946,23 +947,75 @@ class JobManager:
     async def get_result(self, job_id: str) -> dict[str, Any]: ...
     
     async def cancel_task(self, job_id: str) -> bool: ...
+    
+    async def cancel_all_tasks(self) -> int: ...
 ```
 
 **Method Descriptions**:
+- `set_subagent_manager()`: Set subagent manager (for independent Agent loop execution)
 - `start_task()`: Start a background task, returns task ID
 - `check_status()`: Check task status (pending/running/completed/failed/cancelled)
 - `get_result()`: Get completed task result
 - `cancel_task()`: Cancel a running task
+- `cancel_all_tasks()`: Cancel all running tasks
 
 **Task Status**:
 
 | Status | Description |
-|:---|:---|
+| :--- | :--- |
 | `pending` | Task waiting to execute |
-| `running` | Task is executing |
+| `running` | Task is executing (includes iteration progress) |
 | `completed` | Task completed successfully |
 | `failed` | Task execution failed |
 | `cancelled` | Task was cancelled |
+
+---
+
+### 12.2 `SubagentManager`
+
+Subagent manager, responsible for independent Agent loop execution.
+
+```python
+class SubagentManager:
+    def __init__(
+        self,
+        model: BaseChatModel,
+        workspace: Path,
+        tools: list[BaseTool],
+        config: Config,
+        on_notify: Callable[[str, str, str], Awaitable[None]] | None = None,
+    ): ...
+    
+    async def start_task(
+        self,
+        task_description: str,
+        session_key: str,
+        label: str,
+    ) -> str: ...
+    
+    async def cancel_task(self, task_id: str) -> bool: ...
+    
+    async def cancel_all_tasks(self) -> int: ...
+    
+    def get_running_tasks(self) -> dict[str, asyncio.Task]: ...
+```
+
+**Parameter Descriptions**:
+- `model`: LLM model instance
+- `workspace`: Workspace path
+- `tools`: Available tools list
+- `config`: Configuration object
+- `on_notify`: Callback when task completes `(session_key, label, result) -> None`
+
+**Method Descriptions**:
+- `start_task()`: Start independent Agent loop task, max 15 iterations
+- `cancel_task()`: Cancel specified task
+- `cancel_all_tasks()`: Cancel all tasks
+- `get_running_tasks()`: Get list of running tasks
+
+**Iteration Limit**:
+- Each Subagent task executes max 15 Agent iterations
+- Prevents infinite loops, ensures task termination
 
 ---
 
@@ -1092,23 +1145,105 @@ if __name__ == "__main__":
 
 ## 13. Scheduled Tasks Module (`finchbot.cron`)
 
-### 13.1 `CronService`
+### 13.1 Data Classes
 
-Scheduled task service, supports standard cron expressions.
+#### `CronSchedule`
+
+Schedule configuration, supports three scheduling modes.
+
+```python
+@dataclass
+class CronSchedule:
+    """Schedule configuration"""
+    at: str | None = None           # One-time task: ISO format time
+    every_seconds: int | None = None  # Interval task: seconds
+    cron_expr: str | None = None    # Cron expression: minute hour day month weekday
+```
+
+**Three Scheduling Modes**:
+
+| Mode | Parameter | Description | Example |
+| :--- | :--- | :--- | :--- |
+| **at** | `at="2025-01-15T10:30:00"` | One-time task, deleted after execution | Meeting reminder |
+| **every** | `every_seconds=3600` | Interval task, runs every N seconds | Health check |
+| **cron** | `cron_expr="0 9 * * *"` | Cron expression | Daily report |
+
+---
+
+#### `CronPayload`
+
+Task content configuration.
+
+```python
+@dataclass
+class CronPayload:
+    """Task content"""
+    name: str                       # Task name
+    message: str                    # Task message/instruction
+    tz: str = "local"               # IANA timezone (e.g. Asia/Shanghai)
+    input_data: dict | None = None  # Optional input data
+```
+
+---
+
+#### `CronJobState`
+
+Task execution state.
+
+```python
+@dataclass
+class CronJobState:
+    """Execution state"""
+    last_run: datetime | None = None   # Last execution time
+    next_run: datetime | None = None   # Next execution time
+    last_result: str | None = None     # Last execution result
+    run_count: int = 0                  # Execution count
+```
+
+---
+
+#### `CronJob`
+
+Complete scheduled task.
+
+```python
+@dataclass
+class CronJob:
+    """Complete scheduled task"""
+    id: str                          # Task ID (UUID)
+    schedule: CronSchedule           # Schedule configuration
+    payload: CronPayload             # Task content
+    state: CronJobState              # Execution state
+    enabled: bool = True             # Is enabled
+    created_at: datetime             # Creation time
+```
+
+---
+
+### 13.2 `CronService`
+
+Scheduled task service, supports three scheduling modes and IANA timezone.
 
 ```python
 class CronService:
-    def __init__(self, workspace: Path): ...
+    def __init__(
+        self,
+        workspace: Path,
+        on_deliver: Callable[[str, str, str], Awaitable[None]] | None = None,
+    ): ...
     
     async def start(self) -> None: ...
     
-    async def stop(self) -> None: ...
+    def stop(self) -> None: ...
     
     def create_job(
         self,
         name: str,
-        schedule: str,
         message: str,
+        at: str | None = None,
+        every_seconds: int | None = None,
+        cron_expr: str | None = None,
+        tz: str = "local",
         input_data: dict | None = None,
     ) -> str: ...
     
@@ -1116,24 +1251,44 @@ class CronService:
     
     def toggle_job(self, job_id: str, enabled: bool) -> bool: ...
     
-    def list_jobs(self, include_disabled: bool = False) -> list[dict]: ...
+    def list_jobs(self, include_disabled: bool = False) -> list[CronJob]: ...
+    
+    def get_job(self, job_id: str) -> CronJob | None: ...
+    
+    def get_job_state(self, job_id: str) -> CronJobState | None: ...
     
     async def run_job_now(self, job_id: str) -> dict: ...
 ```
 
+**Parameter Descriptions**:
+- `workspace`: Workspace path
+- `on_deliver`: Message delivery callback `(channel, target_id, message) -> None`
+
 **Method Descriptions**:
-- `start()`: Start the scheduled task service
-- `stop()`: Stop the scheduled task service
-- `create_job()`: Create a scheduled task
-- `delete_job()`: Delete a scheduled task
-- `toggle_job()`: Enable/disable a scheduled task
+- `start()`: Start scheduled task service (async)
+- `stop()`: Stop scheduled task service (sync)
+- `create_job()`: Create scheduled task (supports three modes)
+- `delete_job()`: Delete scheduled task
+- `toggle_job()`: Enable/disable scheduled task
 - `list_jobs()`: List all scheduled tasks
-- `run_job_now()`: Execute a scheduled task immediately
+- `get_job()`: Get specified task
+- `get_job_state()`: Get task execution state
+- `run_job_now()`: Execute scheduled task immediately
+
+**IANA Timezone Support**:
+
+```python
+# Supported timezone examples
+tz="Asia/Shanghai"      # Shanghai timezone
+tz="America/New_York"   # New York timezone
+tz="Europe/London"      # London timezone
+tz="local"              # System local timezone (default)
+```
 
 **Cron Expression Format**: `minute hour day month weekday`
 
 | Expression | Description |
-|:---|:---|
+| :--- | :--- |
 | `0 9 * * *` | Daily at 9 AM |
 | `0 */2 * * *` | Every 2 hours |
 | `30 18 * * 1-5` | Weekdays at 6:30 PM |
@@ -1141,11 +1296,11 @@ class CronService:
 
 ---
 
-### 13.2 Scheduled Task Tools
+### 13.3 Scheduled Task Tools
 
 #### `CreateCronTool`
 
-Create a scheduled task.
+Create a scheduled task (supports three scheduling modes).
 
 ```python
 class CreateCronTool(FinchTool):
@@ -1155,17 +1310,62 @@ class CreateCronTool(FinchTool):
     def _run(
         self,
         name: str,
-        schedule: str,
         message: str,
+        at: str | None = None,
+        every_seconds: int | None = None,
+        cron_expr: str | None = None,
+        tz: str = "local",
         input_data: str | None = None,
     ) -> str: ...
 ```
 
 **Parameters**:
 - `name`: Task name
-- `schedule`: Cron expression (5 fields: minute hour day month weekday)
-- `message`: Task content
+- `message`: Task content/instruction
+- `at`: One-time task time (ISO format, e.g. `2025-01-15T10:30:00`)
+- `every_seconds`: Interval seconds (e.g. `3600` for hourly)
+- `cron_expr`: Cron expression (5 fields: minute hour day month weekday)
+- `tz`: IANA timezone (e.g. `Asia/Shanghai`, default `local`)
 - `input_data`: Optional input data (JSON format)
+
+**Note**: Only one of the three scheduling modes needs to be specified (`at`, `every_seconds`, or `cron_expr`).
+
+---
+
+#### `RunCronNowTool`
+
+Execute a scheduled task immediately.
+
+```python
+class RunCronNowTool(FinchTool):
+    name: str = "run_cron_now"
+    description: str = "Execute a scheduled task immediately..."
+    
+    def _run(self, cron_id: str) -> str: ...
+```
+
+**Parameters**:
+- `cron_id`: Task ID
+
+---
+
+#### `GetCronStatusTool`
+
+Get scheduled task execution state.
+
+```python
+class GetCronStatusTool(FinchTool):
+    name: str = "get_cron_status"
+    description: str = "Get the execution state of a scheduled task..."
+    
+    def _run(self, cron_id: str) -> str: ...
+```
+
+**Parameters**:
+- `cron_id`: Task ID
+
+**Returns**:
+- Task state info (includes last run time, next run time, execution count, etc.)
 
 ---
 
@@ -1221,7 +1421,7 @@ class ToggleCronTool(FinchTool):
 
 ---
 
-### 13.3 Usage Example
+### 13.4 Usage Example
 
 ```python
 from finchbot.cron.service import CronService
@@ -1229,25 +1429,53 @@ from pathlib import Path
 
 async def main():
     workspace = Path.home() / ".finchbot" / "workspace"
-    service = CronService(workspace)
     
-    # Create scheduled task
-    job_id = service.create_job(
-        name="Morning reminder",
-        schedule="0 9 * * *",
-        message="Please check today's email",
+    # Create service (with message delivery callback)
+    async def on_deliver(channel: str, target_id: str, message: str):
+        print(f"[{channel}] {target_id}: {message}")
+    
+    service = CronService(workspace, on_deliver=on_deliver)
+    
+    # Mode 1: One-time task (at)
+    job_id_1 = service.create_job(
+        name="Meeting Reminder",
+        message="Remind me to attend the meeting",
+        at="2025-01-15T10:30:00",
+        tz="America/New_York"
+    )
+    
+    # Mode 2: Interval task (every)
+    job_id_2 = service.create_job(
+        name="Health Check",
+        message="Check system status",
+        every_seconds=3600  # Every hour
+    )
+    
+    # Mode 3: Cron expression (cron)
+    job_id_3 = service.create_job(
+        name="Daily Report",
+        message="Send daily report",
+        cron_expr="0 9 * * *",  # Daily at 9:00
+        tz="America/New_York"
     )
     
     # List all tasks
     jobs = service.list_jobs()
     for job in jobs:
-        print(f"{job['name']}: {job['schedule']}")
+        print(f"{job.payload.name}: {job.schedule}")
+    
+    # Get task state
+    state = service.get_job_state(job_id_1)
+    print(f"Next run: {state.next_run}")
+    
+    # Execute immediately
+    result = await service.run_job_now(job_id_3)
     
     # Start service
     await service.start()
     
     # Stop service
-    await service.stop()
+    service.stop()
 
 if __name__ == "__main__":
     import asyncio
@@ -1443,3 +1671,140 @@ reporter.report_error("File not found")
 | `result` | Execution result |
 | `error` | Error information |
 | `status` | General status |
+
+---
+
+## 16. Webhook Server Module (`finchbot.channels.webhook_server`)
+
+### 16.1 `WebhookServer`
+
+FastAPI Webhook server for receiving LangBot messages and returning AI responses.
+
+```python
+class WebhookServer:
+    def __init__(
+        self,
+        config: Config,
+        workspace: Path,
+        host: str = "0.0.0.0",
+        port: int = 8000,
+    ): ...
+    
+    async def start(self) -> None: ...
+    
+    async def stop(self) -> None: ...
+```
+
+**Parameters**:
+- `config`: Configuration object
+- `workspace`: Workspace path
+- `host`: Listen address (default `0.0.0.0`)
+- `port`: Listen port (default 8000)
+
+---
+
+### 16.2 Webhook Request Models
+
+#### `WebhookRequest`
+
+```python
+class WebhookRequest(BaseModel):
+    """Webhook request model"""
+    event: str                    # Event type
+    user_id: str                  # User ID
+    session_id: str | None = None # Session ID
+    message: str                  # Message content
+    platform: str = "unknown"     # Platform identifier
+    metadata: dict = {}           # Additional metadata
+```
+
+#### `WebhookResponse`
+
+```python
+class WebhookResponse(BaseModel):
+    """Webhook response model"""
+    success: bool                 # Success status
+    response: str | None = None   # AI response content
+    error: str | None = None      # Error message
+    session_id: str | None = None # Session ID
+```
+
+---
+
+### 16.3 Usage Example
+
+```python
+import asyncio
+from pathlib import Path
+from finchbot.channels.webhook_server import WebhookServer
+from finchbot.config import load_config
+
+async def main():
+    config = load_config()
+    workspace = Path.home() / ".finchbot" / "workspace"
+    
+    server = WebhookServer(
+        config=config,
+        workspace=workspace,
+        host="0.0.0.0",
+        port=8000,
+    )
+    
+    # Start server
+    await server.start()
+    
+    # Server running...
+    # Visit http://localhost:8000/docs for API documentation
+    
+    # Stop server
+    await server.stop()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
+### 16.4 CLI Startup
+
+```bash
+# Use default port 8000
+uv run finchbot webhook
+
+# Specify port
+uv run finchbot webhook --port 9000
+
+# Specify host and port
+uv run finchbot webhook --host 127.0.0.1 --port 8000
+```
+
+---
+
+### 16.5 API Endpoints
+
+| Endpoint | Method | Description |
+|:---|:---:|:---|
+| `/webhook` | POST | Receive LangBot messages |
+| `/health` | GET | Health check |
+| `/docs` | GET | API documentation (Swagger UI) |
+
+---
+
+### 16.6 Integration with LangBot
+
+1. Start FinchBot Webhook server:
+   ```bash
+   uv run finchbot webhook --port 8000
+   ```
+
+2. Start LangBot:
+   ```bash
+   uvx langbot
+   ```
+
+3. Configure Webhook URL in LangBot WebUI:
+   ```
+   http://localhost:8000/webhook
+   ```
+
+4. Configure platforms (QQ, WeChat, Feishu, etc.), messages will be forwarded to FinchBot via Webhook.

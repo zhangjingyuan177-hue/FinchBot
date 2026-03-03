@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import typer
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 from loguru import logger
@@ -515,7 +515,6 @@ async def _stream_ai_response(
     Returns:
         完整的消息列表.
     """
-    from langchain_core.messages import HumanMessage
 
     input_data = {"messages": [HumanMessage(content=message)]}
     full_content = ""
@@ -753,12 +752,96 @@ async def _run_chat_session_async(
     console.print(f"[dim]{t('cli.chat.model').format(use_model)}[/dim]")
     console.print(f"[dim]{t('cli.chat.workspace').format(ws_path)}[/dim]")
 
-    agent, checkpointer, tools = await AgentFactory.create_for_cli(
+    agent, checkpointer, tools, subagent_manager = await AgentFactory.create_for_cli(
         session_id=session_id,
         workspace=ws_path,
         model=chat_model,
         config=config_obj,
     )
+
+    config = {"configurable": {"thread_id": session_id}}
+
+    async def deliver_message(channel: str, to: str, message: str) -> None:
+        """消息投递回调.
+
+        将定时任务或子代理的结果注入到当前会话。
+
+        Args:
+            channel: 渠道标识
+            to: 目标 ID
+            message: 消息内容
+        """
+        try:
+            current_state = await agent.aget_state(config)
+            messages = list(current_state.values.get("messages", []))
+            messages.append(SystemMessage(content=f"[定时任务通知]\n{message}"))
+            await agent.aupdate_state(config, {"messages": messages})
+            console.print(
+                Panel(
+                    message,
+                    title="🔔 定时任务通知",
+                    border_style="yellow",
+                    padding=(0, 1),
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to deliver message: {e}")
+
+    async def notify_result(session_key: str, label: str, result: str) -> None:
+        """子代理结果通知回调.
+
+        Args:
+            session_key: 会话标识
+            label: 任务标签
+            result: 执行结果
+        """
+        try:
+            current_state = await agent.aget_state(config)
+            messages = list(current_state.values.get("messages", []))
+            messages.append(SystemMessage(content=f"[后台任务完成: {label}]\n{result}"))
+            await agent.aupdate_state(config, {"messages": messages})
+            console.print(
+                Panel(
+                    result[:500] + ("..." if len(result) > 500 else ""),
+                    title=f"🔔 后台任务完成: {label}",
+                    border_style="green",
+                    padding=(0, 1),
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify result: {e}")
+
+    from finchbot.services.config import ServiceConfig
+    from finchbot.services.manager import ServiceManager
+    from finchbot.tools.core import ToolRegistry
+
+    tool_registry = ToolRegistry.get_instance()
+    if not tool_registry:
+        tool_registry = ToolRegistry(ws_path, config_obj)
+        ToolRegistry.set_instance(tool_registry)
+
+    service_config = ServiceConfig(
+        cron_enabled=True,
+        heartbeat_enabled=False,
+    )
+
+    service_manager = ServiceManager(
+        workspace=ws_path,
+        config=config_obj,
+        registry=tool_registry,
+        model=chat_model,
+        service_config=service_config,
+    )
+    ServiceManager.set_instance(service_manager)
+
+    service_manager._on_cron_deliver = deliver_message
+    if subagent_manager:
+        subagent_manager.on_notify = notify_result
+        service_manager._services["subagent_manager"] = subagent_manager
+        logger.debug("SubagentManager integrated with ServiceManager")
+
+    await service_manager.start_all()
+    logger.debug(f"ServiceManager started for workspace: {ws_path}")
 
     web_enabled = any(t.name == "web_search" for t in tools)
     web_status = (
@@ -766,8 +849,6 @@ async def _run_chat_session_async(
     )
     console.print(f"[dim]{web_status}[/dim]")
     console.print(f"[dim]{t('cli.chat.type_to_quit')}[/dim]\n")
-
-    config = {"configurable": {"thread_id": session_id}}
 
     # Try async get_state if available, else sync
     try:
@@ -877,7 +958,7 @@ async def _run_chat_session_async(
                             session_store.create_session(new_sess, title=f"Fork from {session_id}")
 
                         # 更新 Agent 状态到新会话
-                        agent.update_state(new_config, {"messages": rolled_back})
+                        await agent.aupdate_state(new_config, {"messages": rolled_back})
 
                         # 切换当前会话 ID
                         session_id = new_sess
@@ -891,7 +972,7 @@ async def _run_chat_session_async(
                             f"[green]{t('cli.rollback.create_success').format(new_sess, msg_count)}[/green]"
                         )
                     else:
-                        agent.update_state(config, {"messages": rolled_back})
+                        await agent.aupdate_state(config, {"messages": rolled_back})
                         console.print(
                             f"[green]{t('cli.rollback.rollback_success').format(len(rolled_back))}[/green]"
                         )
@@ -928,7 +1009,7 @@ async def _run_chat_session_async(
 
                     new_count = len(messages) - n
                     rolled_back = messages[:new_count]
-                    agent.update_state(config, {"messages": rolled_back})
+                    await agent.aupdate_state(config, {"messages": rolled_back})
 
                     console.print(f"[green]{t('cli.rollback.remove_success').format(n)}[/green]")
                     console.print(
@@ -974,7 +1055,10 @@ async def _run_chat_session_async(
             console.print(f"[red]{t('cli.rollback.error_showing').format(e)}[/red]")
             console.print(f"[dim]{t('cli.chat.check_logs')}[/dim]")
 
-    # 关闭 checkpointer 连接
+    # 清理资源
+    await service_manager.stop_all()
+    logger.debug("ServiceManager stopped all services")
+
     if hasattr(checkpointer, "conn") and checkpointer.conn:
         try:
             await checkpointer.conn.close()

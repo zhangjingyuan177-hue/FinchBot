@@ -114,7 +114,9 @@ class ConfigManager:
                 console.print(f"[bold blue]🔧 {t('cli.config.init_title')}[/bold blue]")
                 console.print(f"[dim]{t('cli.config.config_file')} {self.config_path}[/dim]")
                 console.print(f"[dim]{t('cli.config.workspace')}: {self.workspace}[/dim]")
-                console.print(f"[dim]{t('cli.config.mcp_config_file')}: {get_mcp_config_path(self.workspace)}[/dim]\n")
+                console.print(
+                    f"[dim]{t('cli.config.mcp_config_file')}: {get_mcp_config_path(self.workspace)}[/dim]\n"
+                )
 
                 self._render_config_list(config_items, selected_idx)
 
@@ -186,12 +188,6 @@ class ConfigManager:
                 "key": "mcp",
                 "name": t("cli.config.mcp_servers"),
                 "value": self._get_mcp_status(),
-                "editable": True,
-            },
-            {
-                "key": "langbot",
-                "name": "LangBot",
-                "value": t("cli.config.channel_enabled") if self.config.channels.langbot_enabled else t("cli.config.channel_disabled"),
                 "editable": True,
             },
         ]
@@ -302,8 +298,6 @@ class ConfigManager:
             self._configure_search_engines()
         elif key == "mcp":
             self._configure_mcp()
-        elif key == "langbot":
-            self._configure_langbot()
         elif key.startswith("custom."):
             provider_name = key.replace("custom.", "")
             self._edit_custom_provider(provider_name)
@@ -607,8 +601,7 @@ class ConfigManager:
     def _add_mcp_server(self) -> None:
         """添加 MCP Server."""
         items = [
-            {"name": info["name"], "value": name}
-            for name, info in MCP_SERVER_TEMPLATES.items()
+            {"name": info["name"], "value": name} for name, info in MCP_SERVER_TEMPLATES.items()
         ]
         items.append({"name": t("cli.config.mcp_custom"), "value": "custom"})
 
@@ -678,9 +671,7 @@ class ConfigManager:
                     env=env,
                 )
 
-            console.print(
-                f"[green]✓ MCP server '{server_name}' {t('cli.config.updated')}[/green]"
-            )
+            console.print(f"[green]✓ MCP server '{server_name}' {t('cli.config.updated')}[/green]")
         except KeyboardInterrupt:
             console.print(f"\n[dim]{t('sessions.actions.cancelled')}[/dim]")
 
@@ -732,55 +723,6 @@ class ConfigManager:
                 f"[yellow]✓ MCP server '{server_name}' {t('cli.config.cleared')}[/yellow]"
             )
 
-    def _configure_langbot(self) -> None:
-        """配置 LangBot 集成."""
-        console.print("\n[bold cyan]LangBot 配置[/bold cyan]")
-        console.print("[dim]Channel 功能已迁移到 LangBot 平台[/dim]")
-        console.print("[dim]LangBot 支持 QQ、微信、飞书、钉钉、Discord、Telegram、Slack 等 12+ 平台[/dim]")
-        console.print("[dim]官网: https://langbot.app[/dim]\n")
-
-        status = (
-            t("cli.config.channel_enabled")
-            if self.config.channels.langbot_enabled
-            else t("cli.config.channel_disabled")
-        )
-        url = self.config.channels.langbot_url
-
-        console.print(f"[dim]状态: {status}[/dim]")
-        console.print(f"[dim]URL: {url}[/dim]\n")
-
-        items = [
-            {"name": f"启用/禁用  [{status}]", "value": "toggle"},
-            {"name": f"设置 URL  [{url}]", "value": "url"},
-            {"name": t("config.manager.back"), "value": "back"},
-        ]
-
-        title = f"\n[dim]{t('cli.config.select_action')}:[/dim]\n"
-        help_text = (
-            f"\n[dim cyan]↑↓[/dim cyan] [dim]{t('config.manager.navigate')}[/dim]  "
-            f"[dim cyan]Enter[/dim cyan] [dim]{t('config.manager.select')}[/dim]  "
-            f"[dim cyan]Q[/dim cyan] [dim]{t('config.manager.back')}[/dim]"
-        )
-
-        result = _keyboard_select(items, title, help_text)
-
-        if result == "toggle":
-            self.config.channels.langbot_enabled = not self.config.channels.langbot_enabled
-            new_status = (
-                t("cli.config.channel_enabled")
-                if self.config.channels.langbot_enabled
-                else t("cli.config.channel_disabled")
-            )
-            console.print(f"[green]✓ LangBot {new_status}[/green]")
-        elif result == "url":
-            new_url = questionary.text(
-                "LangBot URL:",
-                default=url,
-            ).unsafe_ask()
-            if new_url:
-                self.config.channels.langbot_url = new_url
-                console.print("[green]✓ URL updated[/green]")
-
 
 def _run_interactive_config(workspace: Path | None = None) -> None:
     """运行交互式配置（入口函数）."""
@@ -793,7 +735,6 @@ def _configure_language(config_obj: Config) -> None:
     languages = [
         {"name": "English (en-US)", "value": "en-US"},
         {"name": "简体中文 (zh-CN)", "value": "zh-CN"},
-        {"name": "繁體中文 (zh-HK)", "value": "zh-HK"},
     ]
 
     initial_idx = 0

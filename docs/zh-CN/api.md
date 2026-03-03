@@ -30,7 +30,7 @@ class AgentFactory:
         workspace: Path,
         model: BaseChatModel,
         config: Config,
-    ) -> tuple[CompiledStateGraph, Any, list[Any]]:
+    ) -> tuple[CompiledStateGraph, Any, list[Any], SubagentManager | None]:
 ```
 
 **参数**：
@@ -40,7 +40,11 @@ class AgentFactory:
 - `config`：配置对象
 
 **返回值**：
-- `(agent, checkpointer, tools)` 元组
+- `(agent, checkpointer, tools, subagent_manager)` 元组
+    - `agent`：编译后的 LangGraph 状态图
+    - `checkpointer`：持久化存储对象
+    - `tools`：工具列表
+    - `subagent_manager`：子代理管理器（用于后台任务）
 
 ---
 
@@ -611,7 +615,6 @@ text = i18n.t("cli.chat.session", session_id="abc123")
 | 语言代码 | 语言名称 |
 |:---|:---|
 | `zh-CN` | 简体中文 |
-| `zh-HK` | 繁体中文 |
 | `en-US` | 英语 |
 
 ---
@@ -933,6 +936,8 @@ class JobManager:
     @classmethod
     def get_instance(cls) -> JobManager: ...
     
+    def set_subagent_manager(self, manager: SubagentManager) -> None: ...
+    
     async def start_task(
         self,
         task_description: str,
@@ -946,23 +951,75 @@ class JobManager:
     async def get_result(self, job_id: str) -> dict[str, Any]: ...
     
     async def cancel_task(self, job_id: str) -> bool: ...
+    
+    async def cancel_all_tasks(self) -> int: ...
 ```
 
 **方法说明**：
+- `set_subagent_manager()`: 设置子代理管理器（用于独立 Agent 循环执行）
 - `start_task()`: 启动后台任务，返回任务 ID
 - `check_status()`: 检查任务状态（pending/running/completed/failed/cancelled）
 - `get_result()`: 获取已完成任务的结果
 - `cancel_task()`: 取消正在运行的任务
+- `cancel_all_tasks()`: 取消所有正在运行的任务
 
 **任务状态**：
 
 | 状态 | 说明 |
-|:---|:---|
+| :--- | :--- |
 | `pending` | 任务等待执行 |
-| `running` | 任务正在执行 |
+| `running` | 任务正在执行（包含迭代进度） |
 | `completed` | 任务执行完成 |
 | `failed` | 任务执行失败 |
 | `cancelled` | 任务已取消 |
+
+---
+
+### 12.2 `SubagentManager`
+
+子代理管理器，负责独立 Agent 循环执行。
+
+```python
+class SubagentManager:
+    def __init__(
+        self,
+        model: BaseChatModel,
+        workspace: Path,
+        tools: list[BaseTool],
+        config: Config,
+        on_notify: Callable[[str, str, str], Awaitable[None]] | None = None,
+    ): ...
+    
+    async def start_task(
+        self,
+        task_description: str,
+        session_key: str,
+        label: str,
+    ) -> str: ...
+    
+    async def cancel_task(self, task_id: str) -> bool: ...
+    
+    async def cancel_all_tasks(self) -> int: ...
+    
+    def get_running_tasks(self) -> dict[str, asyncio.Task]: ...
+```
+
+**参数说明**：
+- `model`: LLM 模型实例
+- `workspace`: 工作区路径
+- `tools`: 可用工具列表
+- `config`: 配置对象
+- `on_notify`: 任务完成时的回调函数 `(session_key, label, result) -> None`
+
+**方法说明**：
+- `start_task()`: 启动独立 Agent 循环任务，最多 15 次迭代
+- `cancel_task()`: 取消指定任务
+- `cancel_all_tasks()`: 取消所有任务
+- `get_running_tasks()`: 获取正在运行的任务列表
+
+**迭代限制**：
+- 每个 Subagent 任务最多执行 15 次 Agent 迭代
+- 防止无限循环，确保任务终止
 
 ---
 
@@ -1092,23 +1149,105 @@ if __name__ == "__main__":
 
 ## 13. 定时任务模块 (`finchbot.cron`)
 
-### 13.1 `CronService`
+### 13.1 数据类
 
-定时任务服务，支持标准 cron 表达式。
+#### `CronSchedule`
+
+调度配置，支持三种调度模式。
+
+```python
+@dataclass
+class CronSchedule:
+    """调度配置"""
+    at: str | None = None           # 一次性任务：ISO 格式时间
+    every_seconds: int | None = None  # 间隔任务：秒数
+    cron_expr: str | None = None    # Cron 表达式：分 时 日 月 周
+```
+
+**三种调度模式**：
+
+| 模式 | 参数 | 说明 | 示例 |
+| :--- | :--- | :--- | :--- |
+| **at** | `at="2025-01-15T10:30:00"` | 一次性任务，执行后删除 | 会议提醒 |
+| **every** | `every_seconds=3600` | 间隔任务，每 N 秒执行 | 健康检查 |
+| **cron** | `cron_expr="0 9 * * *"` | Cron 表达式 | 每日早报 |
+
+---
+
+#### `CronPayload`
+
+任务内容配置。
+
+```python
+@dataclass
+class CronPayload:
+    """任务内容"""
+    name: str                       # 任务名称
+    message: str                    # 任务消息/指令
+    tz: str = "local"               # IANA 时区（如 Asia/Shanghai）
+    input_data: dict | None = None  # 可选输入数据
+```
+
+---
+
+#### `CronJobState`
+
+任务执行状态。
+
+```python
+@dataclass
+class CronJobState:
+    """执行状态"""
+    last_run: datetime | None = None   # 上次执行时间
+    next_run: datetime | None = None   # 下次执行时间
+    last_result: str | None = None     # 上次执行结果
+    run_count: int = 0                  # 执行次数
+```
+
+---
+
+#### `CronJob`
+
+完整定时任务。
+
+```python
+@dataclass
+class CronJob:
+    """完整定时任务"""
+    id: str                          # 任务 ID（UUID）
+    schedule: CronSchedule           # 调度配置
+    payload: CronPayload             # 任务内容
+    state: CronJobState              # 执行状态
+    enabled: bool = True             # 是否启用
+    created_at: datetime             # 创建时间
+```
+
+---
+
+### 13.2 `CronService`
+
+定时任务服务，支持三种调度模式和 IANA 时区。
 
 ```python
 class CronService:
-    def __init__(self, workspace: Path): ...
+    def __init__(
+        self,
+        workspace: Path,
+        on_deliver: Callable[[str, str, str], Awaitable[None]] | None = None,
+    ): ...
     
     async def start(self) -> None: ...
     
-    async def stop(self) -> None: ...
+    def stop(self) -> None: ...
     
     def create_job(
         self,
         name: str,
-        schedule: str,
         message: str,
+        at: str | None = None,
+        every_seconds: int | None = None,
+        cron_expr: str | None = None,
+        tz: str = "local",
         input_data: dict | None = None,
     ) -> str: ...
     
@@ -1116,24 +1255,44 @@ class CronService:
     
     def toggle_job(self, job_id: str, enabled: bool) -> bool: ...
     
-    def list_jobs(self, include_disabled: bool = False) -> list[dict]: ...
+    def list_jobs(self, include_disabled: bool = False) -> list[CronJob]: ...
+    
+    def get_job(self, job_id: str) -> CronJob | None: ...
+    
+    def get_job_state(self, job_id: str) -> CronJobState | None: ...
     
     async def run_job_now(self, job_id: str) -> dict: ...
 ```
 
+**参数说明**：
+- `workspace`: 工作区路径
+- `on_deliver`: 消息传递回调 `(channel, target_id, message) -> None`
+
 **方法说明**：
-- `start()`: 启动定时任务服务
-- `stop()`: 停止定时任务服务
-- `create_job()`: 创建定时任务
+- `start()`: 启动定时任务服务（异步）
+- `stop()`: 停止定时任务服务（同步）
+- `create_job()`: 创建定时任务（支持三种模式）
 - `delete_job()`: 删除定时任务
 - `toggle_job()`: 启用/禁用定时任务
 - `list_jobs()`: 列出所有定时任务
+- `get_job()`: 获取指定任务
+- `get_job_state()`: 获取任务执行状态
 - `run_job_now()`: 立即执行定时任务
+
+**IANA 时区支持**：
+
+```python
+# 支持的时区示例
+tz="Asia/Shanghai"      # 上海时区
+tz="America/New_York"   # 纽约时区
+tz="Europe/London"      # 伦敦时区
+tz="local"              # 系统本地时区（默认）
+```
 
 **Cron 表达式格式**：`分 时 日 月 周`
 
 | 表达式 | 说明 |
-|:---|:---|
+| :--- | :--- |
 | `0 9 * * *` | 每天上午 9 点 |
 | `0 */2 * * *` | 每 2 小时 |
 | `30 18 * * 1-5` | 工作日下午 6:30 |
@@ -1141,11 +1300,11 @@ class CronService:
 
 ---
 
-### 13.2 定时任务工具
+### 13.3 定时任务工具
 
 #### `CreateCronTool`
 
-创建定时任务。
+创建定时任务（支持三种调度模式）。
 
 ```python
 class CreateCronTool(FinchTool):
@@ -1155,17 +1314,62 @@ class CreateCronTool(FinchTool):
     def _run(
         self,
         name: str,
-        schedule: str,
         message: str,
+        at: str | None = None,
+        every_seconds: int | None = None,
+        cron_expr: str | None = None,
+        tz: str = "local",
         input_data: str | None = None,
     ) -> str: ...
 ```
 
 **参数**：
 - `name`: 任务名称
-- `schedule`: Cron 表达式（5 位：分 时 日 月 周）
-- `message`: 任务内容
+- `message`: 任务内容/指令
+- `at`: 一次性任务时间（ISO 格式，如 `2025-01-15T10:30:00`）
+- `every_seconds`: 间隔秒数（如 `3600` 表示每小时）
+- `cron_expr`: Cron 表达式（5 位：分 时 日 月 周）
+- `tz`: IANA 时区（如 `Asia/Shanghai`，默认 `local`）
 - `input_data`: 可选的输入数据（JSON 格式）
+
+**注意**：三种调度模式只需指定其中一种（`at`、`every_seconds` 或 `cron_expr`）。
+
+---
+
+#### `RunCronNowTool`
+
+立即执行定时任务。
+
+```python
+class RunCronNowTool(FinchTool):
+    name: str = "run_cron_now"
+    description: str = "立即执行一次定时任务..."
+    
+    def _run(self, cron_id: str) -> str: ...
+```
+
+**参数**：
+- `cron_id`: 任务 ID
+
+---
+
+#### `GetCronStatusTool`
+
+获取定时任务执行状态。
+
+```python
+class GetCronStatusTool(FinchTool):
+    name: str = "get_cron_status"
+    description: str = "获取定时任务的执行状态..."
+    
+    def _run(self, cron_id: str) -> str: ...
+```
+
+**参数**：
+- `cron_id`: 任务 ID
+
+**返回值**：
+- 任务状态信息（包含上次执行时间、下次执行时间、执行次数等）
 
 ---
 
@@ -1221,7 +1425,7 @@ class ToggleCronTool(FinchTool):
 
 ---
 
-### 13.3 使用示例
+### 13.4 使用示例
 
 ```python
 from finchbot.cron.service import CronService
@@ -1229,25 +1433,53 @@ from pathlib import Path
 
 async def main():
     workspace = Path.home() / ".finchbot" / "workspace"
-    service = CronService(workspace)
     
-    # 创建定时任务
-    job_id = service.create_job(
-        name="晨间提醒",
-        schedule="0 9 * * *",
-        message="请查看今日邮件",
+    # 创建服务（带消息传递回调）
+    async def on_deliver(channel: str, target_id: str, message: str):
+        print(f"[{channel}] {target_id}: {message}")
+    
+    service = CronService(workspace, on_deliver=on_deliver)
+    
+    # 模式 1: 一次性任务 (at)
+    job_id_1 = service.create_job(
+        name="会议提醒",
+        message="提醒我参加会议",
+        at="2025-01-15T10:30:00",
+        tz="Asia/Shanghai"
+    )
+    
+    # 模式 2: 间隔任务 (every)
+    job_id_2 = service.create_job(
+        name="健康检查",
+        message="检查系统状态",
+        every_seconds=3600  # 每小时
+    )
+    
+    # 模式 3: Cron 表达式 (cron)
+    job_id_3 = service.create_job(
+        name="早报",
+        message="发送每日早报",
+        cron_expr="0 9 * * *",  # 每天 9:00
+        tz="Asia/Shanghai"
     )
     
     # 列出所有任务
     jobs = service.list_jobs()
     for job in jobs:
-        print(f"{job['name']}: {job['schedule']}")
+        print(f"{job.payload.name}: {job.schedule}")
+    
+    # 获取任务状态
+    state = service.get_job_state(job_id_1)
+    print(f"下次执行: {state.next_run}")
+    
+    # 立即执行一次
+    result = await service.run_job_now(job_id_3)
     
     # 启动服务
     await service.start()
     
     # 停止服务
-    await service.stop()
+    service.stop()
 
 if __name__ == "__main__":
     import asyncio
@@ -1443,3 +1675,140 @@ reporter.report_error("文件不存在")
 | `result` | 执行结果 |
 | `error` | 错误信息 |
 | `status` | 通用状态 |
+
+---
+
+## 16. Webhook 服务器模块 (`finchbot.channels.webhook_server`)
+
+### 16.1 `WebhookServer`
+
+FastAPI Webhook 服务器，用于接收 LangBot 的消息并返回 AI 响应。
+
+```python
+class WebhookServer:
+    def __init__(
+        self,
+        config: Config,
+        workspace: Path,
+        host: str = "0.0.0.0",
+        port: int = 8000,
+    ): ...
+    
+    async def start(self) -> None: ...
+    
+    async def stop(self) -> None: ...
+```
+
+**参数**：
+- `config`: 配置对象
+- `workspace`: 工作区路径
+- `host`: 监听地址（默认 `0.0.0.0`）
+- `port`: 监听端口（默认 8000）
+
+---
+
+### 16.2 Webhook 请求模型
+
+#### `WebhookRequest`
+
+```python
+class WebhookRequest(BaseModel):
+    """Webhook 请求模型"""
+    event: str                    # 事件类型
+    user_id: str                  # 用户 ID
+    session_id: str | None = None # 会话 ID
+    message: str                  # 消息内容
+    platform: str = "unknown"     # 平台标识
+    metadata: dict = {}           # 附加元数据
+```
+
+#### `WebhookResponse`
+
+```python
+class WebhookResponse(BaseModel):
+    """Webhook 响应模型"""
+    success: bool                 # 是否成功
+    response: str | None = None   # AI 响应内容
+    error: str | None = None      # 错误信息
+    session_id: str | None = None # 会话 ID
+```
+
+---
+
+### 16.3 使用示例
+
+```python
+import asyncio
+from pathlib import Path
+from finchbot.channels.webhook_server import WebhookServer
+from finchbot.config import load_config
+
+async def main():
+    config = load_config()
+    workspace = Path.home() / ".finchbot" / "workspace"
+    
+    server = WebhookServer(
+        config=config,
+        workspace=workspace,
+        host="0.0.0.0",
+        port=8000,
+    )
+    
+    # 启动服务器
+    await server.start()
+    
+    # 服务器运行中...
+    # 访问 http://localhost:8000/docs 查看 API 文档
+    
+    # 停止服务器
+    await server.stop()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
+### 16.4 CLI 启动
+
+```bash
+# 使用默认端口 8000
+uv run finchbot webhook
+
+# 指定端口
+uv run finchbot webhook --port 9000
+
+# 指定主机和端口
+uv run finchbot webhook --host 127.0.0.1 --port 8000
+```
+
+---
+
+### 16.5 API 端点
+
+| 端点 | 方法 | 说明 |
+|:---|:---:|:---|
+| `/webhook` | POST | 接收 LangBot 消息 |
+| `/health` | GET | 健康检查 |
+| `/docs` | GET | API 文档（Swagger UI） |
+
+---
+
+### 16.6 与 LangBot 集成
+
+1. 启动 FinchBot Webhook 服务器：
+   ```bash
+   uv run finchbot webhook --port 8000
+   ```
+
+2. 启动 LangBot：
+   ```bash
+   uvx langbot
+   ```
+
+3. 在 LangBot WebUI 中配置 Webhook URL：
+   ```
+   http://localhost:8000/webhook
+   ```
+
+4. 配置平台（QQ、微信、飞书等），消息将通过 Webhook 转发到 FinchBot。

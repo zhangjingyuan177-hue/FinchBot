@@ -36,8 +36,7 @@ _tools_lock = threading.Lock()
 
 
 def _ensure_tools_registered(
-    workspace: Path | None = None,
-    tools: Sequence[BaseTool] | None = None
+    workspace: Path | None = None, tools: Sequence[BaseTool] | None = None
 ) -> None:
     """确保工具已注册到全局注册表（线程安全）.
 
@@ -51,8 +50,7 @@ def _ensure_tools_registered(
         if _tools_registered:
             return
 
-        from finchbot.tools import get_global_registry
-        registry = get_global_registry()
+        from finchbot.tools import register_tool
 
         # 获取工具列表
         if tools:
@@ -65,9 +63,8 @@ def _ensure_tools_registered(
         # 批量注册
         registered = 0
         for tool in tool_list:
-            if not registry.has(tool.name):
-                registry.register(tool)
-                registered += 1
+            register_tool(tool)
+            registered += 1
 
         _tools_registered = True
         logger.info(f"工具注册完成: {registered}/{len(tool_list)}")
@@ -75,12 +72,25 @@ def _ensure_tools_registered(
 
 def _create_default_tools(workspace: Path) -> list[BaseTool]:
     """创建默认工具列表."""
+    import asyncio
+
+    from finchbot.agent.skills import BUILTIN_SKILLS_DIR
     from finchbot.config import load_config
-    from finchbot.tools.factory import ToolFactory
+    from finchbot.tools.builtin._utils import configure_tools
+    from finchbot.tools.builtin.config import configure_config_tools
+    from finchbot.tools.builtin.shell import configure_shell_tools
+    from finchbot.tools.core import ToolRegistry
 
     config = load_config()
-    factory = ToolFactory(config, workspace)
-    return factory.create_default_tools()
+    allowed_dirs = [workspace]
+    if BUILTIN_SKILLS_DIR.exists():
+        allowed_dirs.append(BUILTIN_SKILLS_DIR)
+    configure_tools(workspace, allowed_dirs)
+    configure_config_tools(workspace)
+    configure_shell_tools(working_dir=str(workspace))
+
+    registry = ToolRegistry(workspace, config)
+    return asyncio.get_event_loop().run_until_complete(registry.initialize())
 
 
 def _create_workspace_templates(workspace: Path) -> None:
@@ -99,13 +109,12 @@ def _create_workspace_templates(workspace: Path) -> None:
     from finchbot.workspace import (
         BOOTSTRAP_DIR,
         CONFIG_DIR,
+        DEFAULT_GITIGNORE,
         GENERATED_DIR,
-        SKILLS_DIR,
+        GITIGNORE_FILE,
         MEMORY_DIR,
         SESSIONS_DIR,
-        BOOTSTRAP_FILES,
-        DEFAULT_GITIGNORE,
-        GITIGNORE_FILE,
+        SKILLS_DIR,
     )
 
     config = load_config()
@@ -171,7 +180,16 @@ def build_system_prompt(
     from finchbot.tools.tools_generator import ToolsGenerator
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
-    runtime = f"{platform.system()} {platform.machine()}, Python {platform.python_version()}"
+
+    system_name = platform.system()
+    if system_name == "Windows":
+        platform_hint = "Windows (请使用 Windows/PowerShell 命令语法)"
+    elif system_name == "Darwin":
+        platform_hint = "macOS (请使用 Unix/BSD 命令语法)"
+    else:
+        platform_hint = f"{system_name} (请使用 Unix/Linux 命令语法)"
+
+    runtime = f"{platform_hint}, Python {platform.python_version()}"
 
     prompt_parts = []
 
@@ -203,6 +221,7 @@ def build_system_prompt(
     # 加载配置
     if config is None:
         from finchbot.config import load_config
+
         config = load_config()
 
     # 从工作区加载 MCP 配置（覆盖全局配置）
@@ -294,6 +313,7 @@ async def create_finch_agent(
     tools: Sequence[BaseTool] | None = None,
     use_persistent: bool = True,
     config: "Config | None" = None,
+    enable_mcp_hot_update: bool = True,
 ) -> tuple[CompiledStateGraph, AsyncSqliteSaver | MemorySaver]:
     """创建 FinchBot Agent.
 
@@ -303,6 +323,7 @@ async def create_finch_agent(
         tools: 可选的工具列表。
         use_persistent: 是否使用持久化 checkpointer（默认 True）。
         config: 可选的配置对象。
+        enable_mcp_hot_update: 是否启用 MCP 热更新 middleware。
 
     Returns:
         (agent, checkpointer) 元组。
@@ -317,23 +338,51 @@ async def create_finch_agent(
     else:
         checkpointer = get_memory_checkpointer()
 
-    # Load config if not provided
     if config is None:
         from finchbot.config import load_config
+
         config = load_config()
 
-    # Build system prompt with capabilities info
     def _build_prompt():
         return build_system_prompt(workspace, True, tools, config)
 
     loop = asyncio.get_running_loop()
     system_prompt = await loop.run_in_executor(None, _build_prompt)
 
+    middleware_list = []
+
+    if enable_mcp_hot_update:
+        try:
+            from finchbot.tools.core import ToolRegistry
+            from finchbot.tools.mcp.hot_update import MCPHotUpdateManager
+            from finchbot.tools.middleware import create_mcp_hot_update_middleware
+
+            registry = ToolRegistry.get_instance()
+            if not registry:
+                registry = ToolRegistry(workspace, config)
+                ToolRegistry.set_instance(registry)
+
+            mcp_manager = MCPHotUpdateManager(workspace, config, registry)
+            MCPHotUpdateManager.set_instance(mcp_manager)
+
+            await mcp_manager.initialize()
+
+            mcp_middleware = create_mcp_hot_update_middleware(mcp_manager, registry)
+            if isinstance(mcp_middleware, list):
+                middleware_list.extend(mcp_middleware)
+            else:
+                middleware_list.append(mcp_middleware)
+
+            logger.info("MCP 热更新 middleware 已启用")
+        except Exception as e:
+            logger.warning(f"启用 MCP 热更新 middleware 失败: {e}")
+
     agent = create_agent(
         model=model,
         tools=list(tools) if tools else None,
         system_prompt=system_prompt,
         checkpointer=checkpointer,
+        middleware=middleware_list,
     )
 
     return agent, checkpointer

@@ -2,7 +2,7 @@
 
 FinchBot provides a rich Command Line Interface (CLI) for interacting with the agent. This document details all available commands and interaction modes.
 
-## Quick Start: Four Commands
+## Quick Start: Five Commands
 
 ```bash
 # Step 1: Configure API keys and default model
@@ -16,9 +16,12 @@ uv run finchbot chat
 
 # Step 4: Manage scheduled tasks
 uv run finchbot cron
+
+# Step 5: Start Webhook server (for LangBot integration)
+uv run finchbot webhook --port 8000
 ```
 
-These four commands cover FinchBot's core workflow:
+These five commands cover FinchBot's core workflow:
 
 ```mermaid
 flowchart LR
@@ -27,6 +30,7 @@ flowchart LR
     A["1. finchbot config<br/>Configure API Keys"]:::step --> B["2. finchbot sessions<br/>Manage Sessions"]:::step
     B --> C["3. finchbot chat<br/>Start Chatting"]:::step
     C --> D["4. finchbot cron<br/>Scheduled Tasks"]:::step
+    D --> E["5. finchbot webhook<br/>LangBot Integration"]:::step
 ```
 
 | Command | Function | Description |
@@ -35,6 +39,7 @@ flowchart LR
 | `finchbot sessions` | Session management | Full-screen interface to create, rename, delete sessions, view history |
 | `finchbot chat` | Start conversation | Launch interactive chat, auto-loads the last active session |
 | `finchbot cron` | Scheduled tasks | Interactive scheduled task manager with keyboard navigation |
+| `finchbot webhook` | Webhook server | Start FastAPI server for LangBot integration |
 
 ---
 
@@ -391,7 +396,15 @@ flowchart TB
 
 ## 7. Scheduled Task Management
 
-FinchBot provides an interactive scheduled task management interface for creating, editing, deleting, and executing scheduled tasks.
+FinchBot provides an interactive scheduled task management interface with **three scheduling modes** and **IANA timezone support**.
+
+### Three Scheduling Modes
+
+| Mode | Parameter | Description | Use Case |
+| :--- | :--- | :--- | :--- |
+| **at** | `at="2025-01-15T10:30:00"` | One-time task, auto-deleted after execution | Meeting reminder, one-time notification |
+| **every** | `every_seconds=3600` | Interval task, runs every N seconds | Health check, periodic sync |
+| **cron** | `cron_expr="0 9 * * *"` | Cron expression for precise scheduling | Daily report, weekday reminder |
 
 ### Enter Task Manager
 
@@ -412,6 +425,30 @@ After launching, a full-screen task management interface will be displayed:
 | e | Toggle | Enable/disable task |
 | r | Run | Execute immediately |
 | q | Quit | Exit management interface |
+
+### IANA Timezone Support
+
+Supports IANA timezone identifiers, defaults to system local timezone:
+
+```python
+# Create scheduled task with timezone
+create_cron(
+    name="NY Stock Market Open Reminder",
+    message="US stock market opening soon",
+    cron_expr="0 9:30 * * 1-5",  # Weekdays 9:30
+    tz="America/New_York"        # New York timezone
+)
+```
+
+**Common Timezones**:
+
+| Timezone | Identifier |
+| :--- | :--- |
+| Beijing Time | `Asia/Shanghai` |
+| New York Time | `America/New_York` |
+| London Time | `Europe/London` |
+| Tokyo Time | `Asia/Tokyo` |
+| System Local | `local` (default) |
 
 ### Cron Expressions
 
@@ -445,28 +482,64 @@ Scheduled task functionality is suitable for:
 
 ### Example
 
-```
-User: Remind me to check email every morning at 9
+**Mode 1: One-time Task (at)**
 
-Agent: Okay, I'll create a scheduled task...
+```
+User: Remind me to attend the meeting tomorrow at 10 AM
+
+Agent: Okay, I'll create a one-time scheduled task...
        [Calls create_cron tool]
-       ✅ Created scheduled task "Morning email reminder"
-       Schedule: Daily at 09:00
-       Content: Please check today's email
+       ✅ Created scheduled task "Meeting Reminder"
+       Execution time: 2025-01-15 10:00:00 (America/New_York)
+       Content: Attend the meeting
+       Note: Will be deleted after execution
+```
+
+**Mode 2: Interval Task (every)**
+
+```
+User: Check system status every hour
+
+Agent: Okay, I'll create an interval task...
+       [Calls create_cron tool]
+       ✅ Created scheduled task "System Status Check"
+       Execution interval: Every 3600 seconds (1 hour)
+       Content: Check system status
+```
+
+**Mode 3: Cron Expression (cron)**
+
+```
+User: Remind me to write a daily report every weekday at 9 AM
+
+Agent: Okay, I'll create a Cron task...
+       [Calls create_cron tool]
+       ✅ Created scheduled task "Morning Report Reminder"
+       Schedule: Weekdays 09:00 (America/New_York)
+       Content: Please write today's report
 ```
 
 ---
 
 ## 8. Background Tasks (Subagent)
 
-FinchBot supports background execution of long-running tasks using a **three-tool pattern**:
+FinchBot supports background execution of long-running tasks using **independent Agent loop execution**:
+
+### Core Features
+
+| Feature | Description |
+| :--- | :--- |
+| **Independent Agent Loop** | Creates independent Agent instance for task execution |
+| **Max 15 Iterations** | Prevents infinite loops, ensures task termination |
+| **Result Notification** | Notifies main session via `on_notify` callback when task completes |
+| **Non-blocking Dialog** | Users can continue conversation while task runs in background |
 
 ### Tool Chain
 
 | Tool | Function |
 | :--- | :--- |
-| `start_background_task` | Start background task |
-| `check_task_status` | Check task status |
+| `start_background_task` | Start background task (independent Agent loop, max 15 iterations) |
+| `check_task_status` | Check task status (includes iteration progress) |
 | `get_task_result` | Get task result |
 | `cancel_task` | Cancel task |
 
@@ -475,7 +548,7 @@ FinchBot supports background execution of long-running tasks using a **three-too
 | State | Description |
 | :--- | :--- |
 | `pending` | Waiting to execute |
-| `running` | Currently executing |
+| `running` | Currently executing (shows iteration progress, e.g. 5/15) |
 | `completed` | Execution completed |
 | `failed` | Execution failed |
 | `cancelled` | Cancelled |
@@ -497,6 +570,16 @@ Agent: This is a long-running task, I'll start a background task...
        
        You can continue the conversation, the task will run in the background.
        I'll notify you when it's complete.
+
+User: Okay, first help me write a simple Python script
+
+Agent: [Normal response to user request]
+       ...
+
+[Background task completes]
+
+Agent: 🔔 Background task complete!
+       Analysis result: Completed analysis of 100 GitHub repositories...
 ```
 
 ---
@@ -598,8 +681,84 @@ finchbot chat -vv
 | `finchbot sessions` | Open session manager |
 | `finchbot config` | Open configuration manager |
 | `finchbot cron` | Open scheduled task manager |
+| `finchbot webhook` | Start Webhook server |
+| `finchbot webhook --port 9000` | Start Webhook on specific port |
 | `finchbot models download` | Download embedding models |
 | `finchbot version` | Show version information |
+
+---
+
+## 11. LangBot Integration
+
+FinchBot includes a built-in FastAPI Webhook server for integration with LangBot platform, enabling multi-platform messaging support.
+
+### Quick Start
+
+```bash
+# Terminal 1: Start FinchBot Webhook Server
+uv run finchbot webhook --port 8000
+
+# Terminal 2: Start LangBot
+uvx langbot
+
+# Access LangBot WebUI at http://localhost:5300
+# Configure your platform and set webhook URL:
+# http://localhost:8000/webhook
+```
+
+### Webhook Server Options
+
+| Option | Description | Default |
+| :--- | :--- | :--- |
+| `--host` | Listen address | `0.0.0.0` |
+| `--port` | Listen port | `8000` |
+
+### Supported Platforms
+
+Through LangBot, FinchBot supports **12+ platforms**:
+
+- QQ
+- WeChat / WeCom
+- Feishu
+- DingTalk
+- Discord
+- Telegram
+- Slack
+- LINE
+- KOOK
+- Satori
+
+### Workflow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant P as Platform
+    participant L as LangBot
+    participant W as Webhook
+    participant A as FinchBot
+
+    U->>P: Send message
+    P->>L: Platform adapter
+    L->>W: POST /webhook
+    W->>A: Process message
+    A-->>W: AI response
+    W-->>L: Return response
+    L->>P: Send reply
+    P->>U: Display response
+```
+
+### Configuration
+
+Configure Webhook in LangBot WebUI:
+
+1. Go to "Platform Configuration" page
+2. Add "Webhook" adapter
+3. Set Webhook URL: `http://localhost:8000/webhook`
+4. Save and enable
+
+For more details, see [LangBot Documentation](https://docs.langbot.app).
 
 ---
 

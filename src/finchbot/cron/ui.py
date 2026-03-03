@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import contextlib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -18,7 +17,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from finchbot.cron.service import CronJob, CronService
+from finchbot.cron.service import CronService
+from finchbot.cron.types import CronJob, CronSchedule
 from finchbot.i18n import t
 
 if TYPE_CHECKING:
@@ -98,14 +98,20 @@ class CronTaskUI:
         import asyncio
 
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
+            return self.cron_service.list_jobs(include_disabled=True)
         except RuntimeError:
-            return asyncio.run(self.cron_service.list(include_disabled=True))
+            pass
 
-        # 如果已有事件循环，使用 run_until_complete
-        with contextlib.suppress(Exception):
-            return list(self.cron_service._jobs.values())
-        return []
+        try:
+            return asyncio.run(self._get_jobs_async())
+        except Exception:
+            return []
+
+    async def _get_jobs_async(self) -> list[CronJob]:
+        """异步获取任务列表."""
+        await self.cron_service.start()
+        return self.cron_service.list_jobs(include_disabled=True)
 
     def _render_job_list(self, jobs: list[CronJob], selected_idx: int) -> None:
         """渲染任务列表.
@@ -135,21 +141,38 @@ class CronTaskUI:
             is_selected = idx == selected_idx
             cursor = "▶" if is_selected else " "
 
-            next_run_str = self._format_next_run(job.next_run_date)
+            next_run_str = self._format_next_run_ms(job.state.next_run_at_ms)
             status_str = t("cron.status.enabled") if job.enabled else t("cron.status.disabled")
 
-            style = "cyan bold" if is_selected else ("dim" if not job.enabled else None)
+            style = "cyan bold" if is_selected else ("dim" if not job.enabled else "")
 
             table.add_row(
-                Text(cursor, style=style),
-                Text(job.cron_id, style=style),
-                Text(job.name[:25], style=style),
-                Text(job.schedule, style=style),
-                Text(next_run_str, style=style),
+                Text(cursor, style=style or ""),
+                Text(job.id, style=style or ""),
+                Text(job.name[:25], style=style or ""),
+                Text(self._format_schedule(job.schedule), style=style or ""),
+                Text(next_run_str, style=style or ""),
                 Text(status_str, style="green" if job.enabled else "red"),
             )
 
         console.print(table)
+
+    def _format_schedule(self, schedule: CronSchedule) -> str:
+        """格式化调度配置.
+
+        Args:
+            schedule: 调度配置
+
+        Returns:
+            格式化后的调度字符串
+        """
+        if schedule.kind == "at":
+            return f"at {schedule.at_ms}"
+        elif schedule.kind == "every":
+            return f"every {schedule.every_ms}ms"
+        elif schedule.kind == "cron":
+            return schedule.expr or ""
+        return schedule.kind
 
     def _render_help(self) -> None:
         """渲染帮助信息."""
@@ -191,44 +214,86 @@ class CronTaskUI:
             if not name:
                 return
 
-            schedule = questionary.text(
+            schedule_input = questionary.text(
                 t("cron.input.schedule"),
                 default="0 9 * * *",
             ).unsafe_ask()
-            if not schedule:
+            if not schedule_input:
                 return
 
             message = questionary.text(t("cron.input.message")).unsafe_ask()
             if not message:
                 return
 
-            # 创建任务
+            schedule = self._parse_schedule_input(schedule_input)
+
             try:
-                loop = asyncio.get_running_loop()
-                # 如果已有事件循环，直接操作
-                import uuid
-
-                from croniter import croniter
-
-                job = CronJob(
-                    cron_id=str(uuid.uuid4())[:8],
-                    name=name,
-                    schedule=schedule,
-                    message=message,
-                )
-                now_local = datetime.now().astimezone()
-                cron = croniter(schedule, now_local)
-                next_dt_local = cron.get_next(datetime)
-                job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
-                self.cron_service._jobs[job.cron_id] = job
-                self.cron_service._save()
+                asyncio.get_running_loop()
+                self.cron_service.add_job(name, schedule, message)
             except RuntimeError:
-                asyncio.run(self.cron_service.create(name, schedule, message))
+                asyncio.run(self.cron_service.start())
+                self.cron_service.add_job(name, schedule, message)
 
             console.print(f"[green]{t('cron.actions.create_success', name=name)}[/green]")
 
         except Exception as e:
             console.print(f"[red]{t('cron.actions.create_failed', error=str(e))}[/red]")
+
+    def _parse_schedule_input(self, schedule_str: str) -> CronSchedule:
+        """解析调度输入字符串.
+
+        Args:
+            schedule_str: 调度字符串（支持 cron 表达式、"every N" 格式）
+
+        Returns:
+            CronSchedule 对象
+        """
+        from croniter import croniter
+
+        schedule_str = schedule_str.strip()
+
+        if schedule_str.startswith("every "):
+            interval_str = schedule_str[6:].strip()
+            every_ms = self._parse_interval(interval_str)
+            return CronSchedule(kind="every", every_ms=every_ms)
+
+        try:
+            croniter(schedule_str)
+            return CronSchedule(kind="cron", expr=schedule_str)
+        except Exception:
+            pass
+
+        return CronSchedule(kind="cron", expr=schedule_str)
+
+    def _parse_interval(self, interval_str: str) -> int:
+        """解析间隔字符串为毫秒.
+
+        Args:
+            interval_str: 间隔字符串（如 "1h", "30m", "1d"）
+
+        Returns:
+            毫秒数
+        """
+        interval_str = interval_str.strip().lower()
+        multipliers = {
+            "s": 1000,
+            "m": 60 * 1000,
+            "h": 60 * 60 * 1000,
+            "d": 24 * 60 * 60 * 1000,
+        }
+
+        for suffix, mult in multipliers.items():
+            if interval_str.endswith(suffix):
+                try:
+                    value = int(interval_str[:-1])
+                    return value * mult
+                except ValueError:
+                    break
+
+        try:
+            return int(interval_str) * 1000
+        except ValueError:
+            return 60 * 60 * 1000
 
     def _handle_delete_job(self, job: CronJob) -> None:
         """删除任务.
@@ -245,11 +310,11 @@ class CronTaskUI:
 
         if confirm:
             try:
-                loop = asyncio.get_running_loop()
-                del self.cron_service._jobs[job.cron_id]
-                self.cron_service._save()
+                asyncio.get_running_loop()
+                self.cron_service.remove_job(job.id)
             except RuntimeError:
-                asyncio.run(self.cron_service.delete(job.cron_id))
+                asyncio.run(self.cron_service.stop())
+                self.cron_service.remove_job(job.id)
             console.print(f"[green]{t('cron.actions.delete_success', name=job.name)}[/green]")
 
     def _handle_toggle_job(self, job: CronJob) -> None:
@@ -262,18 +327,11 @@ class CronTaskUI:
 
         new_enabled = not job.enabled
         try:
-            loop = asyncio.get_running_loop()
-            job.enabled = new_enabled
-            if new_enabled:
-                from croniter import croniter
-
-                now_local = datetime.now().astimezone()
-                cron = croniter(job.schedule, now_local)
-                next_dt_local = cron.get_next(datetime)
-                job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
-            self.cron_service._save()
+            asyncio.get_running_loop()
+            self.cron_service.enable_job(job.id, new_enabled)
         except RuntimeError:
-            asyncio.run(self.cron_service.toggle(job.cron_id, new_enabled))
+            asyncio.run(self.cron_service.stop())
+            self.cron_service.enable_job(job.id, new_enabled)
 
         status = t("cron.status.enabled") if new_enabled else t("cron.status.disabled")
         console.print(
@@ -291,28 +349,28 @@ class CronTaskUI:
         console.print(f"[cyan]{t('cron.actions.running', name=job.name)}...[/cyan]")
 
         try:
-            loop = asyncio.get_running_loop()
-            # 直接执行
-            job.run_count += 1
-            job.last_run_date = datetime.now(UTC).isoformat()
-            from croniter import croniter
-
-            now_local = datetime.now().astimezone()
-            cron = croniter(job.schedule, now_local)
-            next_dt_local = cron.get_next(datetime)
-            job.next_run_date = next_dt_local.astimezone(UTC).isoformat()
-            self.cron_service._save()
-            console.print(f"[green]{t('cron.actions.run_success', name=job.name)}[/green]")
-        except RuntimeError:
-            result = asyncio.run(self.cron_service.run_now(job.cron_id))
-            if result and not result.startswith("Error"):
+            asyncio.get_running_loop()
+            success = asyncio.get_event_loop().run_until_complete(
+                self.cron_service.run_job(job.id, force=True)
+            )
+            if success:
                 console.print(f"[green]{t('cron.actions.run_success', name=job.name)}[/green]")
             else:
-                console.print(
-                    f"[red]{t('cron.actions.run_failed', error=result or 'Unknown')}[/red]"
-                )
-        except Exception as e:
-            console.print(f"[red]{t('cron.actions.run_failed', error=str(e))}[/red]")
+                console.print(f"[red]{t('cron.actions.run_failed', error='Unknown')}[/red]")
+        except RuntimeError:
+            asyncio.run(self._run_job_async(job))
+
+    async def _run_job_async(self, job: CronJob) -> None:
+        """异步执行任务.
+
+        Args:
+            job: 要执行的任务
+        """
+        success = await self.cron_service.run_job(job.id, force=True)
+        if success:
+            console.print(f"[green]{t('cron.actions.run_success', name=job.name)}[/green]")
+        else:
+            console.print(f"[red]{t('cron.actions.run_failed', error='Unknown')}[/red]")
 
     def _show_job_detail(self, job: CronJob) -> None:
         """显示任务详情.
@@ -323,13 +381,12 @@ class CronTaskUI:
         console.clear()
         content = (
             f"[bold]{job.name}[/bold]\n\n"
-            f"[dim]{t('cron.detail.id')}:[/] {job.cron_id}\n"
-            f"[dim]{t('cron.detail.schedule')}:[/] {job.schedule}\n"
-            f"[dim]{t('cron.detail.message')}:[/] {job.message}\n"
-            f"[dim]{t('cron.detail.next_run')}:[/] {self._format_next_run(job.next_run_date)}\n"
-            f"[dim]{t('cron.detail.run_count')}:[/] {job.run_count}\n"
+            f"[dim]{t('cron.detail.id')}:[/] {job.id}\n"
+            f"[dim]{t('cron.detail.schedule')}:[/] {self._format_schedule(job.schedule)}\n"
+            f"[dim]{t('cron.detail.message')}:[/] {job.payload.message}\n"
+            f"[dim]{t('cron.detail.next_run')}:[/] {self._format_next_run_ms(job.state.next_run_at_ms)}\n"
             f"[dim]{t('cron.detail.status')}:[/] {'✅' if job.enabled else '❌'}\n"
-            f"[dim]{t('cron.detail.created_at')}:[/] {self._format_datetime(job.created_at)}"
+            f"[dim]{t('cron.detail.created_at')}:[/] {self._format_datetime_ms(job.created_at_ms)}"
         )
         console.print(
             Panel(
@@ -341,20 +398,20 @@ class CronTaskUI:
         console.print(f"\n[dim]{t('cron.help.any_key_back')}[/dim]")
         readchar.readkey()
 
-    def _format_next_run(self, next_run_date: str | None) -> str:
-        """格式化下次执行时间.
+    def _format_next_run_ms(self, next_run_at_ms: int | None) -> str:
+        """格式化下次执行时间（毫秒时间戳）.
 
         Args:
-            next_run_date: ISO 格式的时间字符串
+            next_run_at_ms: 毫秒时间戳
 
         Returns:
             格式化后的时间字符串
         """
-        if not next_run_date:
+        if not next_run_at_ms:
             return "-"
 
         try:
-            dt = datetime.fromisoformat(next_run_date.replace("Z", "+00:00"))
+            dt = datetime.fromtimestamp(next_run_at_ms / 1000, tz=UTC)
             now = datetime.now(UTC)
             diff = dt - now
 
@@ -371,19 +428,19 @@ class CronTaskUI:
         except Exception:
             return "-"
 
-    def _format_datetime(self, dt_str: str | None) -> str:
-        """格式化日期时间.
+    def _format_datetime_ms(self, dt_ms: int | None) -> str:
+        """格式化日期时间（毫秒时间戳）.
 
         Args:
-            dt_str: ISO 格式的时间字符串
+            dt_ms: 毫秒时间戳
 
         Returns:
             格式化后的时间字符串
         """
-        if not dt_str:
+        if not dt_ms:
             return "-"
         try:
-            dt = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+            dt = datetime.fromtimestamp(dt_ms / 1000, tz=UTC)
             return dt.strftime("%Y-%m-%d %H:%M:%S")
         except Exception:
             return "-"
@@ -399,10 +456,9 @@ def run_cron_ui(workspace: Path) -> None:
 
     cron_service = CronService(workspace / "data")
 
-    # 尝试加载已有数据
     try:
-        loop = asyncio.get_running_loop()
-        cron_service._load()
+        asyncio.get_running_loop()
+        asyncio.get_event_loop().run_until_complete(cron_service.start())
     except RuntimeError:
         asyncio.run(cron_service.start())
 

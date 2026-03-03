@@ -1,22 +1,40 @@
-"""ExecTool 安全检查测试.
+"""Shell 工具安全检查测试.
 
-验证 _guard_command 方法对危险命令和正常命令的判断。
+验证 guard_command 函数对危险命令和正常命令的判断。
 """
 
 import pytest
 
-from finchbot.tools.shell import ExecTool
+from finchbot.tools.builtin.shell import (
+    configure_shell_tools,
+    guard_command,
+    DEFAULT_DENY_PATTERNS,
+)
 
 
 class TestExecToolGuard:
-    """ExecTool 安全检查测试类."""
+    """Shell 安全检查测试类."""
 
-    @pytest.fixture
-    def tool(self) -> ExecTool:
-        """创建 ExecTool 实例."""
-        return ExecTool()
+    @pytest.fixture(autouse=True)
+    def reset_config(self):
+        """每个测试前重置配置."""
+        configure_shell_tools(
+            timeout=60,
+            working_dir=None,
+            deny_patterns=DEFAULT_DENY_PATTERNS.copy(),
+            allow_patterns=[],
+            restrict_to_workspace=False,
+        )
+        yield
+        configure_shell_tools(
+            timeout=60,
+            working_dir=None,
+            deny_patterns=DEFAULT_DENY_PATTERNS.copy(),
+            allow_patterns=[],
+            restrict_to_workspace=False,
+        )
 
-    def test_curl_wttr_in_allowed(self, tool: ExecTool) -> None:
+    def test_curl_wttr_in_allowed(self) -> None:
         """测试 wttr.in curl 命令应该被允许."""
         commands = [
             'curl -s "wttr.in/北京?format=3"',
@@ -25,16 +43,16 @@ class TestExecToolGuard:
             'curl -s "https://wttr.in/Shanghai?format=3"',
         ]
         for cmd in commands:
-            result = tool._guard_command(cmd, "/tmp")
+            result = guard_command(cmd, "/tmp")
             assert result is None, f"命令应该被允许: {cmd}"
 
-    def test_open_meteo_allowed(self, tool: ExecTool) -> None:
+    def test_open_meteo_allowed(self) -> None:
         """测试 Open-Meteo API curl 命令应该被允许."""
         cmd = 'curl -s "https://api.open-meteo.com/v1/forecast?latitude=39.9&longitude=116.4&current_weather=true"'
-        result = tool._guard_command(cmd, "/tmp")
+        result = guard_command(cmd, "/tmp")
         assert result is None, "Open-Meteo API 命令应该被允许"
 
-    def test_format_disk_blocked(self, tool: ExecTool) -> None:
+    def test_format_disk_blocked(self) -> None:
         """测试磁盘格式化命令应该被阻止."""
         dangerous_commands = [
             "format C:\\",
@@ -43,27 +61,27 @@ class TestExecToolGuard:
             "format /dev/nvme0n1",
         ]
         for cmd in dangerous_commands:
-            result = tool._guard_command(cmd, "/tmp")
+            result = guard_command(cmd, "/tmp")
             assert result is not None, f"危险命令应该被阻止: {cmd}"
             assert "安全检查阻止" in result
 
-    def test_mkfs_blocked(self, tool: ExecTool) -> None:
+    def test_mkfs_blocked(self) -> None:
         """测试 mkfs 命令应该被阻止."""
         commands = [
             "mkfs.ext4 /dev/sda1",
             "mkfs -t ext4 /dev/sda1",
         ]
         for cmd in commands:
-            result = tool._guard_command(cmd, "/tmp")
+            result = guard_command(cmd, "/tmp")
             assert result is not None, f"mkfs 命令应该被阻止: {cmd}"
 
-    def test_diskpart_blocked(self, tool: ExecTool) -> None:
+    def test_diskpart_blocked(self) -> None:
         """测试 diskpart 命令应该被阻止."""
         cmd = "diskpart"
-        result = tool._guard_command(cmd, "/tmp")
+        result = guard_command(cmd, "/tmp")
         assert result is not None, "diskpart 命令应该被阻止"
 
-    def test_rm_rf_blocked(self, tool: ExecTool) -> None:
+    def test_rm_rf_blocked(self) -> None:
         """测试 rm -rf 命令应该被阻止."""
         commands = [
             "rm -rf /",
@@ -71,10 +89,10 @@ class TestExecToolGuard:
             "rm -fr /home",
         ]
         for cmd in commands:
-            result = tool._guard_command(cmd, "/tmp")
+            result = guard_command(cmd, "/tmp")
             assert result is not None, f"rm -rf 命令应该被阻止: {cmd}"
 
-    def test_shutdown_blocked(self, tool: ExecTool) -> None:
+    def test_shutdown_blocked(self) -> None:
         """测试关机命令应该被阻止."""
         commands = [
             "shutdown now",
@@ -82,10 +100,10 @@ class TestExecToolGuard:
             "poweroff",
         ]
         for cmd in commands:
-            result = tool._guard_command(cmd, "/tmp")
+            result = guard_command(cmd, "/tmp")
             assert result is not None, f"关机命令应该被阻止: {cmd}"
 
-    def test_normal_commands_allowed(self, tool: ExecTool) -> None:
+    def test_normal_commands_allowed(self) -> None:
         """测试正常命令应该被允许."""
         commands = [
             "ls -la",
@@ -97,10 +115,10 @@ class TestExecToolGuard:
             "curl -s https://example.com",
         ]
         for cmd in commands:
-            result = tool._guard_command(cmd, "/tmp")
+            result = guard_command(cmd, "/tmp")
             assert result is None, f"正常命令应该被允许: {cmd}"
 
-    def test_url_format_parameter_allowed(self, tool: ExecTool) -> None:
+    def test_url_format_parameter_allowed(self) -> None:
         """测试 URL 中的 format 参数不应该触发误报."""
         commands = [
             'curl "http://example.com/api?format=json"',
@@ -108,25 +126,25 @@ class TestExecToolGuard:
             'wget "http://example.com/download?format=zip"',
         ]
         for cmd in commands:
-            result = tool._guard_command(cmd, "/tmp")
+            result = guard_command(cmd, "/tmp")
             assert result is None, f"URL format 参数不应该触发误报: {cmd}"
 
     def test_allow_patterns_whitelist(self) -> None:
         """测试 allow_patterns 白名单功能."""
-        tool = ExecTool(allow_patterns=[r"wttr\.in", r"open-meteo\.com"])
+        configure_shell_tools(allow_patterns=[r"wttr\.in", r"open-meteo\.com"])
 
-        assert tool._guard_command('curl -s "http://wttr.in/Beijing"', "/tmp") is None
-        assert tool._guard_command('curl -s "https://api.open-meteo.com/v1/forecast"', "/tmp") is None
+        assert guard_command('curl -s "http://wttr.in/Beijing"', "/tmp") is None
+        assert guard_command('curl -s "https://api.open-meteo.com/v1/forecast"', "/tmp") is None
 
     def test_allow_patterns_bypass_deny(self) -> None:
         """测试 allow_patterns 可以绕过 deny_patterns."""
-        tool = ExecTool(allow_patterns=[r"safe-format\.com"])
+        configure_shell_tools(allow_patterns=[r"safe-format\.com"])
 
-        result = tool._guard_command('curl "http://safe-format.com/api?format=json"', "/tmp")
+        result = guard_command('curl "http://safe-format.com/api?format=json"', "/tmp")
         assert result is None, "allow_patterns 应该绕过 deny_patterns"
 
-    def test_empty_allow_patterns(self, tool: ExecTool) -> None:
+    def test_empty_allow_patterns(self) -> None:
         """测试空 allow_patterns 不影响正常检查."""
-        assert tool.allow_patterns == []
-        assert tool._guard_command("ls -la", "/tmp") is None
-        assert tool._guard_command("format C:", "/tmp") is not None
+        configure_shell_tools(allow_patterns=[])
+        assert guard_command("ls -la", "/tmp") is None
+        assert guard_command("format C:", "/tmp") is not None

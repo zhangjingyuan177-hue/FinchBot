@@ -2,7 +2,7 @@
 
 FinchBot 提供了丰富的命令行界面（CLI）用于与 Agent 交互。本文档详细介绍所有可用命令和交互模式。
 
-## 快速开始：四步上手
+## 快速开始：五步上手
 
 ```bash
 # 第一步：配置 API Key 和默认模型
@@ -16,9 +16,12 @@ uv run finchbot chat
 
 # 第四步：管理定时任务
 uv run finchbot cron
+
+# 第五步：启动 Webhook 服务器（用于 LangBot 集成）
+uv run finchbot webhook --port 8000
 ```
 
-这四个命令覆盖了 FinchBot 的核心工作流：
+这五个命令覆盖了 FinchBot 的核心工作流：
 
 ```mermaid
 flowchart LR
@@ -27,6 +30,7 @@ flowchart LR
     A["1. finchbot config<br/>配置 API Key"]:::step --> B["2. finchbot sessions<br/>管理会话"]:::step
     B --> C["3. finchbot chat<br/>开始聊天"]:::step
     C --> D["4. finchbot cron<br/>定时任务"]:::step
+    D --> E["5. finchbot webhook<br/>LangBot 集成"]:::step
 ```
 
 | 命令 | 功能 | 说明 |
@@ -35,6 +39,7 @@ flowchart LR
 | `finchbot sessions` | 会话管理 | 全屏界面，创建、重命名、删除会话，查看历史 |
 | `finchbot chat` | 开始对话 | 启动交互式聊天，自动加载上次活动会话 |
 | `finchbot cron` | 定时任务 | 交互式管理定时任务，支持键盘导航 |
+| `finchbot webhook` | Webhook 服务器 | 启动 FastAPI 服务器，用于 LangBot 集成 |
 
 ---
 
@@ -391,7 +396,15 @@ flowchart TB
 
 ## 7. 定时任务管理
 
-FinchBot 提供交互式的定时任务管理界面，支持创建、编辑、删除和执行定时任务。
+FinchBot 提供交互式的定时任务管理界面，支持**三种调度模式**和 **IANA 时区支持**。
+
+### 三种调度模式
+
+| 模式 | 参数 | 说明 | 使用场景 |
+| :--- | :--- | :--- | :--- |
+| **at** | `at="2025-01-15T10:30:00"` | 一次性任务，执行后自动删除 | 会议提醒、一次性通知 |
+| **every** | `every_seconds=3600` | 间隔任务，每 N 秒执行一次 | 健康检查、定期同步 |
+| **cron** | `cron_expr="0 9 * * *"` | Cron 表达式，精确时间调度 | 每日早报、工作日提醒 |
 
 ### 进入任务管理
 
@@ -412,6 +425,30 @@ finchbot cron
 | e | 切换 | 启用/禁用任务 |
 | r | 运行 | 立即执行一次 |
 | q | 退出 | 退出管理界面 |
+
+### IANA 时区支持
+
+支持 IANA 时区标识符，默认使用系统本地时区：
+
+```python
+# 创建带时区的定时任务
+create_cron(
+    name="纽约股市开盘提醒",
+    message="美股即将开盘",
+    cron_expr="0 9:30 * * 1-5",  # 工作日 9:30
+    tz="America/New_York"        # 纽约时区
+)
+```
+
+**常用时区**：
+
+| 时区 | 标识符 |
+| :--- | :--- |
+| 北京时间 | `Asia/Shanghai` |
+| 纽约时间 | `America/New_York` |
+| 伦敦时间 | `Europe/London` |
+| 东京时间 | `Asia/Tokyo` |
+| 系统本地 | `local`（默认） |
 
 ### Cron 表达式
 
@@ -445,28 +482,64 @@ FinchBot 使用标准的 5 字段 Cron 表达式：`分 时 日 月 周`
 
 ### 示例
 
-```
-用户：每天早上 9 点提醒我查看邮件
+**模式 1: 一次性任务 (at)**
 
-智能体：好的，我来创建定时任务...
+```
+用户：明天上午 10 点提醒我参加会议
+
+智能体：好的，我来创建一次性定时任务...
        [调用 create_cron 工具]
-       ✅ 已创建定时任务 "晨间邮件提醒"
-       调度：每天 09:00
-       内容：请查看今日邮件
+       ✅ 已创建定时任务 "会议提醒"
+       执行时间：2025-01-15 10:00:00 (Asia/Shanghai)
+       内容：参加会议
+       说明：执行后自动删除
+```
+
+**模式 2: 间隔任务 (every)**
+
+```
+用户：每小时检查一次系统状态
+
+智能体：好的，我来创建间隔任务...
+       [调用 create_cron 工具]
+       ✅ 已创建定时任务 "系统状态检查"
+       执行间隔：每 3600 秒（1 小时）
+       内容：检查系统状态
+```
+
+**模式 3: Cron 表达式 (cron)**
+
+```
+用户：每个工作日早上 9 点提醒我写日报
+
+智能体：好的，我来创建 Cron 任务...
+       [调用 create_cron 工具]
+       ✅ 已创建定时任务 "晨间日报提醒"
+       调度：工作日 09:00 (Asia/Shanghai)
+       内容：请写今日日报
 ```
 
 ---
 
 ## 8. 后台任务（Subagent）
 
-FinchBot 支持后台执行长时间任务，采用**三工具模式**：
+FinchBot 支持后台执行长时间任务，采用**独立 Agent 循环执行**机制：
+
+### 核心特性
+
+| 特性 | 说明 |
+| :--- | :--- |
+| **独立 Agent 循环** | 创建独立的 Agent 实例执行任务 |
+| **最多 15 次迭代** | 防止无限循环，确保任务终止 |
+| **结果通知** | 任务完成后通过 `on_notify` 回调通知主会话 |
+| **非阻塞对话** | 用户可继续对话，任务在后台执行 |
 
 ### 工具链
 
 | 工具 | 功能 |
 | :--- | :--- |
-| `start_background_task` | 启动后台任务 |
-| `check_task_status` | 检查任务状态 |
+| `start_background_task` | 启动后台任务（独立 Agent 循环，最多 15 次迭代） |
+| `check_task_status` | 检查任务状态（包含迭代进度） |
 | `get_task_result` | 获取任务结果 |
 | `cancel_task` | 取消任务 |
 
@@ -475,7 +548,7 @@ FinchBot 支持后台执行长时间任务，采用**三工具模式**：
 | 状态 | 说明 |
 | :--- | :--- |
 | `pending` | 等待执行 |
-| `running` | 正在执行 |
+| `running` | 正在执行（显示迭代进度，如 5/15） |
 | `completed` | 执行完成 |
 | `failed` | 执行失败 |
 | `cancelled` | 已取消 |
@@ -497,6 +570,16 @@ FinchBot 支持后台执行长时间任务，采用**三工具模式**：
        
        你可以继续对话，任务会在后台执行。
        完成后我会通知你结果。
+
+用户：好的，那先帮我写一个简单的 Python 脚本
+
+智能体：[正常响应用户请求]
+       ...
+
+[后台任务完成后]
+
+智能体：🔔 后台任务完成！
+       分析结果：已完成 100 个 GitHub 仓库的分析...
 ```
 
 ---
@@ -598,8 +681,84 @@ finchbot chat -vv
 | `finchbot sessions` | 打开会话管理器 |
 | `finchbot config` | 打开配置管理器 |
 | `finchbot cron` | 打开定时任务管理器 |
+| `finchbot webhook` | 启动 Webhook 服务器 |
+| `finchbot webhook --port 9000` | 指定端口启动 Webhook |
 | `finchbot models download` | 下载嵌入模型 |
 | `finchbot version` | 显示版本信息 |
+
+---
+
+## 11. LangBot 集成
+
+FinchBot 内置 FastAPI Webhook 服务器，可与 LangBot 平台集成，实现多平台消息支持。
+
+### 快速开始
+
+```bash
+# 终端 1：启动 FinchBot Webhook 服务器
+uv run finchbot webhook --port 8000
+
+# 终端 2：启动 LangBot
+uvx langbot
+
+# 访问 LangBot WebUI http://localhost:5300
+# 配置你的平台并设置 Webhook URL：
+# http://localhost:8000/webhook
+```
+
+### Webhook 服务器选项
+
+| 选项 | 说明 | 默认值 |
+| :--- | :--- | :--- |
+| `--host` | 监听地址 | `0.0.0.0` |
+| `--port` | 监听端口 | `8000` |
+
+### 支持的平台
+
+通过 LangBot，FinchBot 支持 **12+ 平台**：
+
+- QQ
+- 微信 / 企业微信
+- 飞书
+- 钉钉
+- Discord
+- Telegram
+- Slack
+- LINE
+- KOOK
+- Satori
+
+### 工作流程
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant P as 平台
+    participant L as LangBot
+    participant W as Webhook
+    participant A as FinchBot
+
+    U->>P: 发送消息
+    P->>L: 平台适配器
+    L->>W: POST /webhook
+    W->>A: 处理消息
+    A-->>W: AI 响应
+    W-->>L: 返回响应
+    L->>P: 发送回复
+    P->>U: 显示响应
+```
+
+### 配置说明
+
+在 LangBot WebUI 中配置 Webhook：
+
+1. 进入「平台配置」页面
+2. 添加「Webhook」适配器
+3. 设置 Webhook URL：`http://localhost:8000/webhook`
+4. 保存配置并启用
+
+更多详情请参阅 [LangBot 文档](https://docs.langbot.app)。
 
 ---
 
