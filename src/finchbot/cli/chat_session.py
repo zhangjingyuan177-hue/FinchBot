@@ -1043,11 +1043,19 @@ async def _run_chat_session_async(
             console.print()
 
         except KeyboardInterrupt:
-            await _update_session_turn_count_async(session_store, session_id, agent, chat_model)
+            logger.info("User interrupted with Ctrl+C")
+            try:
+                await _update_session_turn_count_async(session_store, session_id, agent, chat_model)
+            except Exception as e:
+                logger.debug(f"Error updating session turn count: {e}")
             console.print(GOODBYE_MESSAGE)
             break
         except EOFError:
-            await _update_session_turn_count_async(session_store, session_id, agent, chat_model)
+            logger.info("User interrupted with EOF")
+            try:
+                await _update_session_turn_count_async(session_store, session_id, agent, chat_model)
+            except Exception as e:
+                logger.debug(f"Error updating session turn count: {e}")
             console.print(GOODBYE_MESSAGE)
             break
         except Exception as e:

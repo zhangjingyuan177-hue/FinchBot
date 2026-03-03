@@ -21,6 +21,9 @@
   <a href="https://gitee.com/xt765/FinchBot">
     <img src="https://img.shields.io/badge/Gitee-FinchBot-red?style=flat-square&logo=gitee" alt="Gitee">
   </a>
+    <a href="https://gitcode.com/xt765/FinchBot">
+    <img src="https://img.shields.io/badge/GitCode-FinchBot-silver?style=flat-square&logo=gitcode" alt="GitCode">
+  </a>
 </p>
 
 <p align="center">

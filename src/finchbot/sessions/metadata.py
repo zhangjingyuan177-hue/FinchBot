@@ -74,13 +74,22 @@ class SessionMetadataStore:
         self.db_path = self.workspace / SESSIONS_DIR / "metadata.db"
         self._init_db()
 
+    def _get_connection(self) -> sqlite3.Connection:
+        """获取启用了 WAL 模式的数据库连接.
+
+        Returns:
+            配置好的 SQLite 连接对象。
+        """
+        conn = sqlite3.connect(str(self.db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+        return conn
+
     def _init_db(self) -> None:
         """初始化数据库表."""
         (self.workspace / SESSIONS_DIR).mkdir(parents=True, exist_ok=True)
 
-        conn = sqlite3.connect(str(self.db_path))
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA busy_timeout=30000")
+        conn = self._get_connection()
         conn.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
                 session_id TEXT PRIMARY KEY,
@@ -123,7 +132,7 @@ class SessionMetadataStore:
             turn_count=turn_count,
         )
 
-        with sqlite3.connect(str(self.db_path)) as conn:
+        with self._get_connection() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO sessions
@@ -161,7 +170,7 @@ class SessionMetadataStore:
         """
         now = datetime.now().isoformat()
 
-        with sqlite3.connect(str(self.db_path)) as conn:
+        with self._get_connection() as conn:
             if turn_count is not None:
                 conn.execute(
                     "UPDATE sessions SET last_active = ?, turn_count = ? WHERE session_id = ?",
@@ -216,7 +225,7 @@ class SessionMetadataStore:
         Returns:
             会话元数据，如不存在则返回 None
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
+        with self._get_connection() as conn:
             cursor = conn.execute("SELECT * FROM sessions WHERE session_id = ?", (session_id,))
             row = cursor.fetchone()
 
@@ -238,7 +247,7 @@ class SessionMetadataStore:
         Returns:
             按最后活跃时间倒序排列的会话列表。
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
+        with self._get_connection() as conn:
             cursor = conn.execute(
                 """
                 SELECT * FROM sessions
@@ -265,7 +274,7 @@ class SessionMetadataStore:
         Returns:
             按 session_id 数字顺序排列的会话列表
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
+        with self._get_connection() as conn:
             cursor = conn.execute(
                 """
                 SELECT * FROM sessions
@@ -299,7 +308,7 @@ class SessionMetadataStore:
         Returns:
             是否成功删除
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
+        with self._get_connection() as conn:
             cursor = conn.execute("DELETE FROM sessions WHERE session_id = ?", (session_id,))
             conn.commit()
             deleted = cursor.rowcount > 0
@@ -317,7 +326,7 @@ class SessionMetadataStore:
         Returns:
             是否存在
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
+        with self._get_connection() as conn:
             cursor = conn.execute("SELECT 1 FROM sessions WHERE session_id = ?", (session_id,))
             return cursor.fetchone() is not None
 
