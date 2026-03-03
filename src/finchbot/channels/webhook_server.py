@@ -126,10 +126,40 @@ async def process_message_with_agent(
     Returns:
         AI 响应文本
     """
-    from finchbot.agent import create_agent_with_checkpointer
+    from functools import partial
+
+    from finchbot.agent import create_finch_agent, get_default_workspace
+    from finchbot.cli.chat_session import _get_llm_config
+    from finchbot.providers.factory import create_chat_model
+
+    # 获取 LLM 配置
+    use_model = config.default_model
+    api_key, api_base, detected_model = _get_llm_config(use_model, config)
+
+    if detected_model:
+        use_model = detected_model
+
+    if not api_key:
+        raise ValueError("No API key configured for LLM")
+
+    # 创建 LLM
+    llm = create_chat_model(
+        model=use_model,
+        api_key=api_key,
+        api_base=api_base,
+        temperature=config.agents.defaults.temperature,
+    )
+
+    # 获取工作目录
+    workspace = get_default_workspace()
 
     # 创建 Agent 实例
-    agent, checkpointer = await create_agent_with_checkpointer(config)
+    agent, checkpointer = await create_finch_agent(
+        model=llm,
+        workspace=workspace,
+        use_persistent=True,
+        config=config,
+    )
 
     # 构建会话 ID
     session_id = f"langbot_{message.sender_id}"
