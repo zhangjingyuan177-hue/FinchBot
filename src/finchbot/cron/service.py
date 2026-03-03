@@ -275,7 +275,11 @@ class CronService:
             if self._running:
                 await self._on_timer()
 
-        self._timer_task = asyncio.create_task(tick())
+        try:
+            asyncio.get_running_loop()
+            self._timer_task = asyncio.create_task(tick())
+        except RuntimeError:
+            pass
 
     async def _on_timer(self) -> None:
         """定时器回调 - 执行到期任务."""

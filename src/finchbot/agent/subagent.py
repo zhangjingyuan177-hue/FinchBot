@@ -27,6 +27,18 @@ if TYPE_CHECKING:
     from finchbot.config.schema import Config
 
 
+def _get_tool_name(tool: BaseTool) -> str:
+    """安全获取工具名称.
+
+    Args:
+        tool: 工具实例
+
+    Returns:
+        工具名称
+    """
+    return getattr(tool, "name", str(tool))
+
+
 class SubagentManager:
     """子代理管理器.
 
