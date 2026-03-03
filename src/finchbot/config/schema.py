@@ -139,6 +139,7 @@ class MCPServerConfig(BaseModel):
         url: HTTP 传输的服务器 URL。
         headers: HTTP 传输的请求头（用于认证等）。
         disabled: 是否禁用此服务器。
+        tool_timeout: 工具调用超时时间（秒）。
     """
 
     command: str = ""
@@ -147,6 +148,7 @@ class MCPServerConfig(BaseModel):
     url: str = ""
     headers: dict[str, str] | None = None
     disabled: bool = False
+    tool_timeout: int = 30
 
 
 class MCPConfig(BaseModel):
@@ -162,15 +164,22 @@ class MCPConfig(BaseModel):
 
 
 class ChannelsConfig(BaseModel):
-    """渠道配置.
+    """渠道配置（LangBot Webhook 集成）.
 
-    Channel 功能已迁移到 LangBot 平台。
     LangBot 支持 QQ、微信、飞书、钉钉、Discord、Telegram、Slack 等 12+ 平台。
-    请使用 LangBot 的 WebUI 配置各平台：https://langbot.app
+    官方文档: https://docs.langbot.app
+
+    Attributes:
+        langbot_enabled: 是否启用 LangBot 集成。
+        langbot_url: LangBot 服务地址。
+        langbot_api_key: LangBot API 密钥。
+        langbot_webhook_path: Webhook 端点路径。
     """
 
     langbot_enabled: bool = False
-    langbot_url: str = "http://localhost:5090"
+    langbot_url: str = "http://localhost:5300"
+    langbot_api_key: str = ""
+    langbot_webhook_path: str = "/webhook/langbot"
 
 
 class Config(BaseSettings):

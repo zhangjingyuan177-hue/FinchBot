@@ -94,6 +94,7 @@ config_help = "Manage FinchBot configuration"
 sessions_help = "Manage sessions"
 models_help = "Manage models"
 cron_help = "Manage scheduled tasks"
+channel_help = "Manage LangBot channel integration"
 
 [cli.status]
 enabled = "Enabled"
@@ -1039,3 +1040,92 @@ Call the heartbeat tool to report your decision:
 text = """Check the following HEARTBEAT.md content:
 
 {content}"""
+
+# ========================================
+# Channel Management
+# ========================================
+
+[channel]
+title = "📡 Channel Management (LangBot)"
+
+[channel.columns]
+setting = "Setting"
+value = "Value"
+
+[channel.items]
+status = "Connection Status"
+enabled = "Enabled"
+url = "LangBot URL"
+api_key = "API Key"
+webhook = "Webhook Path"
+
+[channel.status]
+enabled = "Enabled"
+disabled = "Disabled"
+connected = "Connected"
+disconnected = "Disconnected"
+checking = "Checking..."
+error = "Connection Error"
+
+[channel.help]
+navigate = "Navigate"
+detail = "View Details"
+t_test = "Test Connection"
+c_config = "Configure"
+b_bots = "Bot List"
+w_webhook = "Webhook Info"
+q_quit = "Quit"
+any_key_back = "Press any key to go back"
+
+[channel.actions]
+quit = "Exited channel management"
+testing = "Testing connection"
+test_success = "Connection successful! LangBot is available"
+test_failed = "Connection failed. Please check URL and service status"
+test_error = "Connection test error: {error}"
+toggle_success = "Status toggled"
+updated = "Updated"
+fetching_bots = "Fetching bot list"
+no_bots = "No bots configured"
+fetch_error = "Failed to fetch bot list: {error}"
+
+[channel.config]
+title = "LangBot Configuration"
+toggle = "Enable/Disable"
+set_url = "Set URL"
+set_api_key = "Set API Key"
+url_prompt = "Enter LangBot URL"
+api_key_prompt = "Enter API Key"
+
+[channel.bots]
+name = "Bot Name"
+platform = "Platform"
+status = "Status"
+
+[channel.webhook]
+title = "Webhook Configuration"
+description = "Configure this Webhook URL in LangBot to receive and process message events."
+url = "Webhook URL"
+method = "Method"
+format = "Format"
+langbot_config = "LangBot Configuration Steps"
+step1 = "Login to LangBot WebUI"
+step2 = "Go to 'API Integration' → 'Webhooks'"
+step3 = "Create new Webhook with the URL above"
+
+[channel.not_set]
+_not_set = "Not Set"
+
+# ========================================
+# CLI Channel Commands
+# ========================================
+
+[cli.channel]
+host_help = "Webhook server listen address"
+port_help = "Webhook server listen port"
+not_enabled = "LangBot integration is not enabled. Please enable it in configuration."
+run_config = "Run 'finchbot channel' to configure"
+starting = "Starting FinchBot Webhook Service"
+listening = "Listening on: http://{host}:{port}"
+endpoint = "Webhook endpoint: {path}"
+stopped = "Service stopped"

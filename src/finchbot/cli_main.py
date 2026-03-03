@@ -166,5 +166,51 @@ def cron_callback(ctx: typer.Context) -> None:
         selector.interactive_manage()
 
 
+channel_app = typer.Typer(help=t("cli.commands.channel_help"))
+app.add_typer(channel_app, name="channel")
+
+
+@channel_app.callback(invoke_without_command=True)
+def channel_callback(ctx: typer.Context) -> None:
+    """渠道管理（交互式界面）."""
+    if ctx.invoked_subcommand is None:
+        from finchbot.channels.selector import ChannelSelector
+
+        selector = ChannelSelector()
+        selector.interactive_manage()
+
+
+@channel_app.command("serve")
+def channel_serve(
+    host: str = typer.Option("0.0.0.0", "--host", "-h", help=t("cli.channel.host_help")),
+    port: int = typer.Option(8000, "--port", "-p", help=t("cli.channel.port_help")),
+) -> None:
+    """启动 Webhook 服务器.
+
+    启动 HTTP 服务接收 LangBot 的消息事件。
+    """
+    from finchbot.channels.webhook_server import run_webhook_server
+    from finchbot.config import load_config
+
+    config = load_config()
+
+    if not config.channels.langbot_enabled:
+        console.print(f"[yellow]{t('cli.channel.not_enabled')}[/yellow]")
+        console.print(f"[dim]{t('cli.channel.run_config')}[/dim]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold cyan]{t('cli.channel.starting')}[/bold cyan]")
+    console.print(f"[dim]{t('cli.channel.listening', host=host, port=port)}[/dim]")
+    console.print(
+        f"[dim]{t('cli.channel.endpoint', path=config.channels.langbot_webhook_path)}[/dim]"
+    )
+    console.print()
+
+    try:
+        run_webhook_server(config, host=host, port=port)
+    except KeyboardInterrupt:
+        console.print(f"\n[dim]{t('cli.channel.stopped')}[/dim]")
+
+
 if __name__ == "__main__":
     app()
