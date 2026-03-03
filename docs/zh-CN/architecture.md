@@ -37,39 +37,54 @@ FinchBot 基于 **LangChain v1.2** + **LangGraph v1.0** 构建，具备持久化
 ### 1.1 整体架构图
 
 ```mermaid
-graph TB
-    classDef uiLayer fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
-    classDef coreLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef taskLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
-    classDef infraLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef channelLayer fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
+flowchart TB
+    classDef input fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
+    classDef core fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef task fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+    classDef infra fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
 
-    subgraph UI [用户交互层]
-        CLI[CLI 界面]:::uiLayer
+    subgraph Input [输入层]
+        direction LR
+        CLI[CLI 界面<br/>Rich 美化]:::input
+        LB[LangBot<br/>12+ 平台]:::input
+        Webhook[Webhook<br/>FastAPI]:::input
     end
 
-    subgraph LangBot [LangBot 平台层]
-        Webhook[Webhook 服务器<br/>FastAPI]:::channelLayer
-        LB[LangBot<br/>12+ 平台]:::channelLayer
+    subgraph Core [核心层 - Agent 决策引擎]
+        direction TB
+        Agent[LangGraph Agent<br/>状态管理 · 循环控制]:::core
+        subgraph CoreModules [核心组件]
+            direction LR
+            Context[ContextBuilder<br/>上下文构建]:::core
+            Streaming[ProgressReporter<br/>流式输出]:::core
+        end
     end
 
-    subgraph Core [Agent 核心层]
-        Agent[LangGraph Agent<br/>决策引擎]:::coreLayer
-        Context[ContextBuilder<br/>上下文构建]:::coreLayer
-        Tools[ToolRegistry<br/>24 内置工具 + MCP]:::coreLayer
-        Memory[MemoryManager<br/>双层记忆]:::coreLayer
-        Streaming[ProgressReporter<br/>实时进度]:::coreLayer
+    subgraph Capabilities [能力层 - 三层扩展]
+        direction LR
+        BuiltIn[内置工具<br/>24 个开箱即用]:::core
+        MCP[MCP 扩展<br/>动态配置]:::core
+        Skills[技能系统<br/>自主创建]:::core
     end
 
-    subgraph Task [任务系统层]
-        SubagentMgr[SubagentManager<br/>独立 Agent 循环<br/>最多 15 次迭代]:::taskLayer
-        CronSvc[CronService<br/>at/every/cron 三种模式<br/>IANA 时区支持]:::taskLayer
-        Heartbeat[HeartbeatService<br/>定期检查]:::taskLayer
+    subgraph Task [任务层 - 三层调度]
+        direction LR
+        BG[后台任务<br/>异步执行]:::task
+        Cron[定时任务<br/>at/every/cron]:::task
+        Heart[心跳监控<br/>自主唤醒]:::task
     end
 
-    subgraph Infra [基础设施层]
-        Storage[双层存储<br/>SQLite + VectorStore]:::infraLayer
-        LLM[LLM 提供商<br/>OpenAI/Anthropic/DeepSeek]:::infraLayer
+    subgraph Memory [记忆层 - 双层存储]
+        direction LR
+        SQLite[(SQLite<br/>结构化存储)]:::infra
+        Vector[(VectorStore<br/>向量检索)]:::infra
+    end
+
+    subgraph LLM [模型层 - 多提供商]
+        direction LR
+        OpenAI[OpenAI<br/>GPT-4o]:::infra
+        Anthropic[Anthropic<br/>Claude]:::infra
+        DeepSeek[DeepSeek<br/>国产]:::infra
     end
 
     CLI --> Agent
@@ -77,15 +92,15 @@ graph TB
     Webhook --> Agent
 
     Agent --> Context
-    Agent <--> Tools
-    Agent <--> Memory
     Agent --> Streaming
-    Agent <--> SubagentMgr
-    Agent <--> CronSvc
-    Agent <--> Heartbeat
-
-    Memory --> Storage
+    Agent --> Capabilities
+    Agent --> Task
+    Agent <--> Memory
     Agent --> LLM
+
+    Context --> Memory
+    Memory --> SQLite
+    Memory --> Vector
 ```
 
 ### 1.2 目录结构

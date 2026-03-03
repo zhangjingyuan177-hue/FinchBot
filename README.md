@@ -99,39 +99,54 @@ flowchart TB
 ### Overall Architecture
 
 ```mermaid
-graph TB
-    classDef uiLayer fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
-    classDef coreLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef taskLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
-    classDef infraLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
-    classDef channelLayer fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
+flowchart TB
+    classDef input fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
+    classDef core fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef task fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+    classDef infra fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
 
-    subgraph UI [User Interaction Layer]
-        CLI[CLI Interface]:::uiLayer
+    subgraph Input [Input Layer]
+        direction LR
+        CLI[CLI Interface<br/>Rich UI]:::input
+        LB[LangBot<br/>12+ Platforms]:::input
+        Webhook[Webhook<br/>FastAPI]:::input
     end
 
-    subgraph LangBot [LangBot Platform Layer]
-        Webhook[Webhook Server<br/>FastAPI]:::channelLayer
-        LB[LangBot<br/>12+ Platforms]:::channelLayer
+    subgraph Core [Core Layer - Agent Decision Engine]
+        direction TB
+        Agent[LangGraph Agent<br/>State Management · Loop Control]:::core
+        subgraph CoreModules [Core Components]
+            direction LR
+            Context[ContextBuilder<br/>Context Building]:::core
+            Streaming[ProgressReporter<br/>Streaming Output]:::core
+        end
     end
 
-    subgraph Core [Agent Core]
-        Agent[LangGraph Agent<br/>Decision Engine]:::coreLayer
-        Context[ContextBuilder<br/>Context Building]:::coreLayer
-        Tools[ToolRegistry<br/>24 Built-in Tools + MCP]:::coreLayer
-        Memory[MemoryManager<br/>Dual-layer Memory]:::coreLayer
-        Streaming[ProgressReporter<br/>Real-time Progress]:::coreLayer
+    subgraph Capabilities [Capability Layer - Three-Tier Extension]
+        direction LR
+        BuiltIn[Built-in Tools<br/>24 Ready-to-Use]:::core
+        MCP[MCP Extension<br/>Dynamic Config]:::core
+        Skills[Skill System<br/>Self-Create]:::core
     end
 
-    subgraph Task [Task System Layer]
-        SubagentMgr[SubagentManager<br/>Independent Agent Loop<br/>Max 15 Iterations]:::taskLayer
-        CronSvc[CronService<br/>at/every/cron Modes<br/>IANA Timezone Support]:::taskLayer
-        Heartbeat[HeartbeatService<br/>Periodic Check]:::taskLayer
+    subgraph Task [Task Layer - Three-Tier Scheduling]
+        direction LR
+        BG[Background Tasks<br/>Async Execution]:::task
+        Cron[Scheduled Tasks<br/>at/every/cron]:::task
+        Heart[Heartbeat Monitor<br/>Self-Wakeup]:::task
     end
 
-    subgraph Infra [Infrastructure Layer]
-        Storage[Dual-layer Storage<br/>SQLite + VectorStore]:::infraLayer
-        LLM[LLM Providers<br/>OpenAI/Anthropic/DeepSeek]:::infraLayer
+    subgraph Memory [Memory Layer - Dual Storage]
+        direction LR
+        SQLite[(SQLite<br/>Structured Storage)]:::infra
+        Vector[(VectorStore<br/>Vector Retrie)]:::infra
+    end
+
+    subgraph LLM [Model Layer - Multi-Provider]
+        direction LR
+        OpenAI[OpenAI<br/>GPT-4o]:::infra
+        Anthropic[Anthropic<br/>Claude]:::infra
+        DeepSeek[DeepSeek<br/>Domestic]:::infra
     end
 
     CLI --> Agent
@@ -139,15 +154,14 @@ graph TB
     Webhook --> Agent
 
     Agent --> Context
-    Agent <--> Tools
-    Agent <--> Memory
     Agent --> Streaming
-    Agent <--> SubagentMgr
-    Agent <--> CronSvc
-    Agent <--> Heartbeat
-
-    Memory --> Storage
+    Agent --> Capabilities
+    Agent --> Task
+    Agent <--> Memory
     Agent --> LLM
+    Context --> Memory
+    Memory --> SQLite
+    Memory --> Vector
 ```
 
 ### Data Flow
