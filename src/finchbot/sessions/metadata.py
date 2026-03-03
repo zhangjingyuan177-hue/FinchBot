@@ -78,23 +78,25 @@ class SessionMetadataStore:
         """初始化数据库表."""
         (self.workspace / SESSIONS_DIR).mkdir(parents=True, exist_ok=True)
 
-        with sqlite3.connect(str(self.db_path)) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS sessions (
-                    session_id TEXT PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    message_count INTEGER DEFAULT 0,
-                    turn_count INTEGER DEFAULT 0
-                )
-            """)
-            # 数据库迁移：检查 turn_count 列是否存在，如不存在则添加
-            cursor = conn.execute("PRAGMA table_info(sessions)")
-            columns = [row[1] for row in cursor.fetchall()]
-            if "turn_count" not in columns:
-                conn.execute("ALTER TABLE sessions ADD COLUMN turn_count INTEGER DEFAULT 0")
-            conn.commit()
+        conn = sqlite3.connect(str(self.db_path))
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS sessions (
+                session_id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                message_count INTEGER DEFAULT 0,
+                turn_count INTEGER DEFAULT 0
+            )
+        """)
+        cursor = conn.execute("PRAGMA table_info(sessions)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "turn_count" not in columns:
+            conn.execute("ALTER TABLE sessions ADD COLUMN turn_count INTEGER DEFAULT 0")
+        conn.commit()
+        conn.close()
         logger.debug(f"Session metadata store initialized at {self.db_path}")
 
     def create_session(

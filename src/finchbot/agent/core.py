@@ -292,8 +292,14 @@ async def get_sqlite_checkpointer(workspace: Path) -> AsyncIterator[AsyncSqliteS
         AsyncSqliteSaver 实例。
     """
     db_path = workspace / SESSIONS_DIR / "checkpoints.db"
-    async with AsyncSqliteSaver.from_conn_string(str(db_path)) as checkpointer:
+    conn = await aiosqlite.connect(str(db_path), check_same_thread=False)
+    try:
+        await conn.execute("PRAGMA journal_mode=WAL")
+        await conn.execute("PRAGMA busy_timeout=30000")
+        checkpointer = AsyncSqliteSaver(conn)
         yield checkpointer
+    finally:
+        await conn.close()
 
 
 def get_memory_checkpointer() -> MemorySaver:
@@ -334,6 +340,8 @@ async def create_finch_agent(
     if use_persistent:
         db_path = workspace / SESSIONS_DIR / "checkpoints.db"
         conn = await aiosqlite.connect(str(db_path), check_same_thread=False)
+        await conn.execute("PRAGMA journal_mode=WAL")
+        await conn.execute("PRAGMA busy_timeout=30000")
         checkpointer = AsyncSqliteSaver(conn)
     else:
         checkpointer = get_memory_checkpointer()
