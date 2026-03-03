@@ -12,7 +12,7 @@
 <p align="center">🌐 <strong>Language</strong>: <a href="README.md">English</a> | <a href="README_CN.md">中文</a></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Gitee-Officially_Recommended-red?logo=gitee&logoColor=white" alt="Gitee Recommended">
+  <img src="https://img.shields.io/badge/Gitee-Gitee Officially_Recommended-red?logo=gitee&logoColor=white" alt="Gitee Recommended">
   <a href="https://atomgit.com/xt765/FinchBot">
     <img src="https://img.shields.io/badge/AtomGit-G--Star_Incubation_Project-silver?logo=git&logoColor=white" alt="AtomGit">
   </a>
