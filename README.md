@@ -102,11 +102,17 @@ flowchart TB
 graph TB
     classDef uiLayer fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
     classDef coreLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef taskLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
     classDef infraLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef channelLayer fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
 
     subgraph UI [User Interaction Layer]
         CLI[CLI Interface]:::uiLayer
-        Channels[Multi-platform Channels<br/>Discord/DingTalk/Feishu/WeChat/Email]:::uiLayer
+    end
+
+    subgraph LangBot [LangBot Platform Layer]
+        Webhook[Webhook Server<br/>FastAPI]:::channelLayer
+        LB[LangBot<br/>12+ Platforms]:::channelLayer
     end
 
     subgraph Core [Agent Core]
@@ -114,6 +120,13 @@ graph TB
         Context[ContextBuilder<br/>Context Building]:::coreLayer
         Tools[ToolRegistry<br/>24 Built-in Tools + MCP]:::coreLayer
         Memory[MemoryManager<br/>Dual-layer Memory]:::coreLayer
+        Streaming[ProgressReporter<br/>Real-time Progress]:::coreLayer
+    end
+
+    subgraph Task [Task System Layer]
+        SubagentMgr[SubagentManager<br/>Independent Agent Loop<br/>Max 15 Iterations]:::taskLayer
+        CronSvc[CronService<br/>at/every/cron Modes<br/>IANA Timezone Support]:::taskLayer
+        Heartbeat[HeartbeatService<br/>Periodic Check]:::taskLayer
     end
 
     subgraph Infra [Infrastructure Layer]
@@ -122,11 +135,16 @@ graph TB
     end
 
     CLI --> Agent
-    Channels --> Agent
+    LB <--> Webhook
+    Webhook --> Agent
 
     Agent --> Context
     Agent <--> Tools
     Agent <--> Memory
+    Agent --> Streaming
+    Agent <--> SubagentMgr
+    Agent <--> CronSvc
+    Agent <--> Heartbeat
 
     Memory --> Storage
     Agent --> LLM
@@ -395,13 +413,15 @@ FinchBot implements a **four-tool pattern** for asynchronous task execution:
 sequenceDiagram
     participant U as User
     participant A as Agent
-    participant BG as Background Task System
-    participant S as Subagent
+    participant SM as SubagentManager
+    participant SA as Subagent<br/>(Independent Loop)
+    participant JS as JobStore
 
     U->>A: Execute long task
-    A->>BG: start_background_task
-    BG->>S: Create independent Agent
-    BG-->>A: Return job_id
+    A->>SM: start_background_task
+    SM->>JS: Create task (pending)
+    SM->>SA: Create independent Agent loop
+    JS-->>A: Return job_id
     A-->>U: Task started (ID: xxx)
     
     Note over U,A: User continues dialog...
@@ -410,15 +430,20 @@ sequenceDiagram
     A-->>U: Normal response
     
     U->>A: Task progress?
-    A->>BG: check_task_status
-    BG-->>A: running
+    A->>SM: check_task_status
+    SM->>JS: Query status
+    JS-->>SM: running (iteration 5/15)
     A-->>U: Still executing...
     
-    S-->>BG: Task complete
-    U->>A: Get result
-    A->>BG: get_task_result
-    BG-->>A: Return result
-    A-->>U: Task result display
+    loop Max 15 iterations
+        SA->>SA: Tool call
+        SA->>SA: LLM reasoning
+    end
+    
+    SA-->>SM: Task complete
+    SM->>SM: on_notify callback
+    SM->>A: Inject result to session
+    A-->>U: 🔔 Background task complete
 ```
 
 #### Scheduled Tasks
@@ -426,25 +451,65 @@ sequenceDiagram
 FinchBot's scheduled task system enables agents to autonomously create and manage periodic tasks:
 
 ```mermaid
-flowchart LR
-    classDef agent fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
-    classDef system fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
-    classDef action fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+flowchart TB
+    classDef cli fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
+    classDef service fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef tool fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef mode fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
 
-    Agent[Agent Creates Task]:::agent --> Scheduler[Cron Scheduler]:::system
-    Scheduler --> |Trigger| Execute[Execute Task]:::action
-    Execute --> |Success| Notify[Notify User]:::action
-    Execute --> |Failure| Retry[Auto Retry]:::action
+    subgraph Service [Service Layer]
+        CronService[CronService<br/>croniter Engine]:::service
+        TZ[IANA Timezone<br/>Asia/Shanghai etc.]:::service
+    end
+
+    subgraph Modes [Three Scheduling Modes]
+        AtMode["at Mode<br/>One-time Task<br/>Delete After Run"]:::mode
+        EveryMode["every Mode<br/>Interval Task<br/>Every N Seconds"]:::mode
+        CronMode["cron Mode<br/>Cron Expression<br/>Precise Scheduling"]:::mode
+    end
+
+    subgraph Tools [Tool Layer]
+        Create[create_cron]:::tool
+        List[list_crons]:::tool
+        Delete[delete_cron]:::tool
+        Toggle[toggle_cron]:::tool
+        RunNow[run_cron_now]:::tool
+    end
+
+    subgraph Callbacks [Callback Mechanism]
+        OnDeliver[on_deliver<br/>Message Delivery]:::service
+    end
+
+    CronService --> TZ
+    CronService --> Modes
+    Modes --> Storage[(cron_jobs.json)]
+    
+    Agent[Agent] --> Tools
+    Tools --> Storage
+    
+    CronService --> OnDeliver
+    OnDeliver --> Agent
 ```
 
 **Core Features**:
 
 | Feature | Description |
 | :--- | :--- |
+| **Three Scheduling Modes** | `at` (one-time), `every` (interval), `cron` (Cron expression) |
+| **IANA Timezone Support** | Specify timezone like `Asia/Shanghai`, `America/New_York` |
 | **Cron Expressions** | Standard Cron syntax for flexible scheduling |
-| **Persistent Storage** | Tasks saved in SQLite, auto-recover after restart |
+| **Persistent Storage** | Tasks saved in JSON, auto-recover after restart |
 | **Auto Retry** | Automatic retry on failure for reliability |
 | **Status Tracking** | Execution history for audit and debugging |
+| **Message Delivery** | `on_deliver` callback injects results into session |
+
+**Three Scheduling Modes**:
+
+| Mode | Parameter | Description | Example |
+| :--- | :--- | :--- | :--- |
+| **at** | `at="2025-01-15T10:30:00"` | One-time task, deleted after execution | Meeting reminder |
+| **every** | `every_seconds=3600` | Interval task, runs every N seconds | Health check every hour |
+| **cron** | `cron_expr="0 9 * * *"` | Cron expression for precise scheduling | Daily report at 9 AM |
 
 **Common Cron Expressions**:
 
@@ -828,13 +893,54 @@ flowchart LR
     LangBot <--> Platforms
 ```
 
+#### Webhook Integration Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant P as Platform<br/>(QQ/WeChat/etc)
+    participant L as LangBot
+    participant W as Webhook<br/>FastAPI
+    participant A as FinchBot<br/>Agent
+    participant M as Memory
+
+    U->>P: Send message
+    P->>L: Platform adapter
+    L->>W: POST /webhook
+    W->>W: Parse event
+    W->>A: Create/get Agent
+    A->>M: Recall context
+    M-->>A: Return memories
+    A->>A: LLM reasoning
+    A->>M: Store new memories
+    A-->>W: Response text
+    W-->>L: WebhookResponse
+    L->>P: Send reply
+    P->>U: Display response
+```
+
+#### Quick Start with LangBot
+
 ```bash
-# Install LangBot
+# Terminal 1: Start FinchBot Webhook Server
+uv run finchbot webhook --port 8000
+
+# Terminal 2: Start LangBot
 uvx langbot
 
-# Access WebUI at http://localhost:5300
-# Configure your platforms and connect to FinchBot
+# Access LangBot WebUI at http://localhost:5300
+# Configure your platform and set webhook URL:
+# http://localhost:8000/webhook
 ```
+
+#### Webhook Configuration
+
+| Setting | Description | Default |
+| :--- | :--- | :--- |
+| `langbot_url` | LangBot API URL | `http://localhost:5300` |
+| `langbot_api_key` | LangBot API Key | - |
+| `langbot_webhook_path` | Webhook endpoint path | `/webhook` |
 
 For more details, see [LangBot Documentation](https://docs.langbot.app).
 
@@ -892,6 +998,9 @@ uv run finchbot sessions
 
 # Step 4: Manage scheduled tasks
 uv run finchbot cron
+
+# Step 5: Start webhook server (for LangBot integration)
+uv run finchbot webhook --port 8000
 ```
 
 | Command | Function |
@@ -900,6 +1009,7 @@ uv run finchbot cron
 | `finchbot chat` | Start or continue an interactive conversation |
 | `finchbot sessions` | Full-screen session manager |
 | `finchbot cron` | Scheduled task manager |
+| `finchbot webhook` | Start webhook server for LangBot integration |
 
 ### Docker Deployment
 

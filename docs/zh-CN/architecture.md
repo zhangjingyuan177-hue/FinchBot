@@ -40,18 +40,31 @@ FinchBot 基于 **LangChain v1.2** + **LangGraph v1.0** 构建，具备持久化
 graph TB
     classDef uiLayer fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
     classDef coreLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef taskLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
     classDef infraLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef channelLayer fill:#fff9c4,stroke:#f9a825,stroke-width:2px,color:#f57f17;
 
     subgraph UI [用户交互层]
         CLI[CLI 界面]:::uiLayer
-        Channels[多平台通道<br/>Discord/钉钉/飞书/微信/邮件]:::uiLayer
+    end
+
+    subgraph LangBot [LangBot 平台层]
+        Webhook[Webhook 服务器<br/>FastAPI]:::channelLayer
+        LB[LangBot<br/>12+ 平台]:::channelLayer
     end
 
     subgraph Core [Agent 核心层]
         Agent[LangGraph Agent<br/>决策引擎]:::coreLayer
         Context[ContextBuilder<br/>上下文构建]:::coreLayer
-        Tools[ToolRegistry<br/>15 内置工具 + MCP]:::coreLayer
+        Tools[ToolRegistry<br/>24 内置工具 + MCP]:::coreLayer
         Memory[MemoryManager<br/>双层记忆]:::coreLayer
+        Streaming[ProgressReporter<br/>实时进度]:::coreLayer
+    end
+
+    subgraph Task [任务系统层]
+        SubagentMgr[SubagentManager<br/>独立 Agent 循环<br/>最多 15 次迭代]:::taskLayer
+        CronSvc[CronService<br/>at/every/cron 三种模式<br/>IANA 时区支持]:::taskLayer
+        Heartbeat[HeartbeatService<br/>定期检查]:::taskLayer
     end
 
     subgraph Infra [基础设施层]
@@ -60,11 +73,16 @@ graph TB
     end
 
     CLI --> Agent
-    Channels --> Agent
+    LB <--> Webhook
+    Webhook --> Agent
 
     Agent --> Context
     Agent <--> Tools
     Agent <--> Memory
+    Agent --> Streaming
+    Agent <--> SubagentMgr
+    Agent <--> CronSvc
+    Agent <--> Heartbeat
 
     Memory --> Storage
     Agent --> LLM
@@ -79,7 +97,8 @@ finchbot/
 │   ├── factory.py     # AgentFactory（并发线程池）
 │   ├── context.py     # ContextBuilder 提示词组装
 │   ├── capabilities.py # CapabilitiesBuilder 能力构建
-│   └── skills.py      # SkillsLoader Markdown 技能加载
+│   ├── skills.py      # SkillsLoader Markdown 技能加载
+│   └── streaming.py   # ProgressReporter 进度流输出
 ├── background/         # 后台任务系统
 │   ├── __init__.py
 │   ├── store.py       # JobStore 任务存储
@@ -97,7 +116,8 @@ finchbot/
 │   ├── bus.py         # MessageBus 异步路由器
 │   ├── manager.py     # ChannelManager 协调器
 │   ├── schema.py      # 消息模型
-│   └── langbot_integration.py  # LangBot 集成指南
+│   ├── langbot_integration.py  # LangBot 集成指南
+│   └── webhook_server.py  # Webhook 服务器（FastAPI）
 ├── cli/                # 命令行界面
 │   ├── chat_session.py # 异步会话管理
 │   ├── config_manager.py
@@ -410,6 +430,7 @@ flowchart TB
     classDef builtin fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
     classDef mcp fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#7b1fa2;
     classDef agent fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
+    classDef enhance fill:#ffecb3,stroke:#ff8f00,stroke-width:2px,color:#e65100;
 
     TR[ToolRegistry<br/>全局注册表]:::registry
     Lock[单锁模式<br/>线程安全单例]:::registry
@@ -428,11 +449,19 @@ flowchart TB
         MCPTools[MCP Tools<br/>外部工具]:::mcp
     end
 
+    subgraph Enhancements [MCP 增强 - 新增]
+        Timeout[超时控制<br/>默认 60 秒]:::enhance
+        Reconnect[重连机制<br/>最大 3 次尝试]:::enhance
+        HealthCheck[健康检查<br/>60 秒间隔]:::enhance
+        ExitStack[AsyncExitStack<br/>资源管理]:::enhance
+    end
+
     Agent[Agent 调用]:::agent
 
     TR --> Lock
     Lock --> BuiltIn
     MCPConfig --> MCPClient --> MCPTools --> TR
+    MCPClient --> Enhancements
     TR --> Agent
 ```
 
@@ -558,15 +587,58 @@ flowchart LR
     LangBot <--> QQ & WeChat & Feishu & DingTalk & Discord & Telegram & Slack
 ```
 
+#### Webhook 服务器
+
+**实现位置**：`src/finchbot/channels/webhook_server.py`
+
+FinchBot 内置 FastAPI Webhook 服务器，用于接收 LangBot 的消息并返回 AI 响应。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant P as 平台<br/>(QQ/微信等)
+    participant L as LangBot
+    participant W as Webhook<br/>FastAPI
+    participant A as FinchBot<br/>Agent
+    participant M as 记忆
+
+    U->>P: 发送消息
+    P->>L: 平台适配器
+    L->>W: POST /webhook
+    W->>W: 解析事件
+    W->>A: 创建/获取 Agent
+    A->>M: 召回上下文
+    M-->>A: 返回记忆
+    A->>A: LLM 推理
+    A->>M: 存储新记忆
+    A-->>W: 响应文本
+    W-->>L: WebhookResponse
+    L->>P: 发送回复
+    P->>U: 显示响应
+```
+
 #### 快速开始
 
 ```bash
-# 安装 LangBot
+# 终端 1：启动 FinchBot Webhook 服务器
+uv run finchbot webhook --port 8000
+
+# 终端 2：启动 LangBot
 uvx langbot
 
-# 访问 WebUI http://localhost:5300
-# 配置你的平台并连接到 FinchBot
+# 访问 LangBot WebUI http://localhost:5300
+# 配置你的平台并设置 Webhook URL：
+# http://localhost:8000/webhook
 ```
+
+#### Webhook 配置
+
+| 配置项 | 说明 | 默认值 |
+| :--- | :--- | :--- |
+| `langbot_url` | LangBot API URL | `http://localhost:5300` |
+| `langbot_api_key` | LangBot API Key | - |
+| `langbot_webhook_path` | Webhook 端点路径 | `/webhook` |
 
 更多详情请参阅 [LangBot 文档](https://docs.langbot.app)。
 
@@ -818,25 +890,32 @@ flowchart TB
     classDef core fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px,color:#4a148c;
     classDef auto fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
     classDef extend fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef callback fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
 
     Agent[🤖 智能体<br/>自主决策中心]:::core
 
     subgraph Auto [自主执行能力]
-        BG[后台任务<br/>自主启动长时间任务]:::auto
-        Cron[定时任务<br/>自主设定执行计划]:::auto
+        BG[后台任务<br/>SubagentManager<br/>独立 Agent 循环<br/>最多 15 次迭代]:::auto
+        Cron[定时任务<br/>CronService<br/>at/every/cron 三种模式<br/>IANA 时区支持]:::auto
         Heartbeat[心跳服务<br/>自主监控与触发]:::auto
     end
 
+    subgraph Callback [回调机制 - 新增]
+        OnNotify[on_notify<br/>后台任务结果通知]:::callback
+        OnDeliver[on_deliver<br/>定时任务消息传递]:::callback
+    end
+
     subgraph Extend [自我扩展能力]
-        MCP[MCP 配置<br/>自主扩展工具能力]:::extend
+        MCP[MCP 配置<br/>自主扩展工具能力<br/>超时控制/重连/健康检查]:::extend
         Skills[技能创建<br/>自主定义行为边界]:::extend
     end
 
     Agent --> Auto
     Agent --> Extend
-
-    BG <--> |任务状态| Heartbeat
-    Cron <--> |到期触发| Heartbeat
+    BG --> OnNotify
+    Cron --> OnDeliver
+    OnNotify --> Agent
+    OnDeliver --> Agent
     MCP --> |新工具| Agent
 ```
 
@@ -872,13 +951,15 @@ FinchBot 实现了先进的后台任务系统，采用**三工具模式**让 Age
 sequenceDiagram
     participant U as 用户
     participant A as 智能体
-    participant BG as 后台任务系统
-    participant S as Subagent
+    participant SM as SubagentManager
+    participant SA as 子智能体<br/>(独立循环)
+    participant JS as JobStore
 
     U->>A: 执行长时间任务
-    A->>BG: start_background_task
-    BG->>S: 创建独立 Agent
-    BG-->>A: 返回 job_id
+    A->>SM: start_background_task
+    SM->>JS: 创建任务 (pending)
+    SM->>SA: 创建独立 Agent 循环
+    JS-->>A: 返回 job_id
     A-->>U: 任务已启动 (ID: xxx)
     
     Note over U,A: 用户继续对话...
@@ -887,24 +968,53 @@ sequenceDiagram
     A-->>U: 正常响应
     
     U->>A: 任务进度如何？
-    A->>BG: check_task_status
-    BG-->>A: running (50%)
+    A->>SM: check_task_status
+    SM->>JS: 查询状态
+    JS-->>SM: running (迭代 5/15)
     A-->>U: 正在执行中...
     
-    S-->>BG: 任务完成
-    U->>A: 获取结果
-    A->>BG: get_task_result
-    BG-->>A: 返回结果
-    A-->>U: 任务结果展示
+    loop 最多 15 次迭代
+        SA->>SA: 工具调用
+        SA->>SA: LLM 推理
+    end
+    
+    SA-->>SM: 任务完成
+    SM->>SM: on_notify 回调
+    SM->>A: 注入结果到会话
+    A-->>U: 🔔 后台任务完成通知
 ```
 
 #### 核心组件
 
 | 组件 | 文件 | 功能 |
-|:---|:---|:---|
+| :--- | :--- | :--- |
+| **SubagentManager** | `subagent.py` | 管理独立 Agent 循环，最多 15 次迭代 |
 | **JobStore** | `store.py` | 内存存储任务状态 |
 | **BackgroundTools** | `tools.py` | 四个工具实现 |
 | **Subagent** | Agent 实例 | 独立执行任务 |
+
+#### SubagentManager 机制
+
+SubagentManager 是后台任务的核心，实现了独立 Agent 循环执行：
+
+| 特性 | 说明 |
+| :--- | :--- |
+| **独立 Agent 循环** | 创建独立的 Agent 实例执行任务 |
+| **最大 15 次迭代** | 防止无限循环，确保任务终止 |
+| **on_notify 回调** | 任务完成后通知主会话 |
+| **会话级管理** | 每个会话独立的任务管理 |
+
+#### 回调机制
+
+```python
+# CLI 中的回调实现
+async def notify_result(session_key: str, label: str, result: str) -> None:
+    """后台任务完成时注入结果到会话"""
+    current_state = await agent.aget_state(config)
+    messages = list(current_state.values.get("messages", []))
+    messages.append(SystemMessage(content=f"[后台任务完成]\n{label}: {result}"))
+    agent.update_state(config, {"messages": messages})
+```
 
 #### 任务状态流转
 
@@ -923,8 +1033,8 @@ stateDiagram-v2
 #### 后台任务工具
 
 | 工具 | 功能 | 智能体自主性 |
-|:---|:---|:---|
-| `start_background_task` | 启动后台任务 | 智能体自主判断是否需要后台执行 |
+| :--- | :--- | :--- |
+| `start_background_task` | 启动后台任务（独立 Agent 循环，最多 15 次迭代） | 智能体自主判断是否需要后台执行 |
 | `check_task_status` | 检查任务状态 | 智能体自主决定何时检查 |
 | `get_task_result` | 获取任务结果 | 智能体自主决定何时获取结果 |
 | `cancel_task` | 取消任务 | 智能体自主决定是否取消 |
@@ -937,6 +1047,38 @@ stateDiagram-v2
 
 FinchBot 提供了完整的定时任务解决方案，支持 **CLI 交互式管理** 和 **工具调用** 两种方式。
 
+#### 三种调度模式
+
+| 模式 | 参数 | 说明 | 使用场景 |
+| :--- | :--- | :--- | :--- |
+| **at** | `at="2025-01-15T10:30:00"` | 一次性任务，执行后自动删除 | 会议提醒、一次性通知 |
+| **every** | `every_seconds=3600` | 间隔任务，每 N 秒执行一次 | 健康检查、定期同步 |
+| **cron** | `cron_expr="0 9 * * *"` | Cron 表达式，精确时间调度 | 每日早报、工作日提醒 |
+
+#### IANA 时区支持
+
+支持 IANA 时区标识符，默认使用系统时区：
+
+```python
+# 创建带时区的定时任务
+create_cron(
+    name="纽约股市开盘提醒",
+    message="美股即将开盘",
+    cron_expr="0 9:30 * * 1-5",  # 工作日 9:30
+    tz="America/New_York"        # 纽约时区
+)
+```
+
+#### 数据类定义
+
+| 数据类 | 说明 |
+| :--- | :--- |
+| **CronSchedule** | 调度配置，包含 at/every/cron 三种模式参数 |
+| **CronPayload** | 任务内容，包含 name、message、tz 等 |
+| **CronJobState** | 执行状态，记录上次/下次执行时间 |
+| **CronJob** | 完整任务，整合 Schedule、Payload、State |
+| **CronStore** | 存储管理，负责 JSON 持久化 |
+
 #### 系统架构
 
 ```mermaid
@@ -944,6 +1086,8 @@ flowchart TB
     classDef cli fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
     classDef service fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
     classDef tool fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef mode fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
+    classDef data fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
 
     subgraph CLI [CLI 交互]
         Command[finchbot cron]:::cli
@@ -952,7 +1096,21 @@ flowchart TB
 
     subgraph Service [服务层]
         CronService[CronService<br/>croniter 调度引擎]:::service
-        Storage[(cron_jobs.json)]:::service
+        TZ[IANA 时区支持<br/>Asia/Shanghai 等]:::service
+    end
+
+    subgraph Modes [三种调度模式]
+        AtMode["at 模式<br/>一次性任务<br/>执行后删除"]:::mode
+        EveryMode["every 模式<br/>间隔任务<br/>每 N 秒执行"]:::mode
+        CronMode["cron 模式<br/>Cron 表达式<br/>精确时间调度"]:::mode
+    end
+
+    subgraph Data [数据类 - 新增]
+        Schedule[CronSchedule<br/>调度配置]:::data
+        Payload[CronPayload<br/>任务内容]:::data
+        State[CronJobState<br/>执行状态]:::data
+        Job[CronJob<br/>完整任务]:::data
+        Store[CronStore<br/>存储管理]:::data
     end
 
     subgraph Tools [工具层]
@@ -960,13 +1118,26 @@ flowchart TB
         List[list_crons]:::tool
         Delete[delete_cron]:::tool
         Toggle[toggle_cron]:::tool
+        RunNow[run_cron_now]:::tool
+        GetStatus[get_cron_status]:::tool
+    end
+
+    subgraph Callbacks [回调机制 - 新增]
+        OnDeliver[on_deliver<br/>消息传递回调]:::data
     end
 
     Command --> Selector
     Selector --> CronService
-    CronService --> Storage
+    CronService --> TZ
+    CronService --> Modes
+    Modes --> Data
+    Data --> Storage[(cron_jobs.json)]
+    
     Agent[智能体] --> Tools
-    Tools --> Storage
+    Tools --> Data
+    
+    CronService --> OnDeliver
+    OnDeliver --> Agent
 ```
 
 #### CronSelector 交互式界面
@@ -1006,11 +1177,13 @@ flowchart TB
 #### 定时任务工具
 
 | 工具 | 功能 | 智能体自主性 |
-|:---|:---|:---|
-| `create_cron` | 创建定时任务 | 智能体自主解析时间表达式并创建 |
+| :--- | :--- | :--- |
+| `create_cron` | 创建定时任务（支持 at/every/cron 三种模式） | 智能体自主解析时间表达式并创建 |
 | `list_crons` | 列出所有任务 | 智能体自主查看当前任务 |
 | `delete_cron` | 删除任务 | 智能体自主决定删除不需要的任务 |
 | `toggle_cron` | 启用/禁用任务 | 智能体自主调整任务状态 |
+| `run_cron_now` | 立即执行一次任务 | 智能体自主触发任务执行 |
+| `get_cron_status` | 获取任务执行状态 | 智能体自主查询任务详情 |
 
 ---
 

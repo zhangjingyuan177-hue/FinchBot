@@ -128,6 +128,7 @@ flowchart TB
 graph TB
     classDef uiLayer fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
     classDef coreLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
+    classDef taskLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
     classDef infraLayer fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
 
     subgraph UI [用户交互层]
@@ -142,6 +143,11 @@ graph TB
         Memory[MemoryManager<br/>双层记忆]:::coreLayer
     end
 
+    subgraph Task [任务系统层]
+        SubagentMgr[SubagentManager<br/>独立 Agent 循环<br/>最多 15 次迭代]:::taskLayer
+        CronSvc[CronService<br/>at/every/cron 三种模式<br/>IANA 时区支持]:::taskLayer
+    end
+
     subgraph Infra [基础设施层]
         Storage[双层存储<br/>SQLite + VectorStore]:::infraLayer
         LLM[LLM 提供商<br/>OpenAI/Anthropic/DeepSeek]:::infraLayer
@@ -153,9 +159,12 @@ graph TB
     Agent --> Context
     Agent <--> Tools
     Agent <--> Memory
+    Agent --> SubagentMgr
+    Agent --> CronSvc
 
     Memory --> Storage
     Agent --> LLM
+    SubagentMgr --> LLM
 ```
 
 ### 数据流
@@ -422,11 +431,14 @@ sequenceDiagram
     participant U as 用户
     participant A as 智能体
     participant BG as 后台任务系统
-    participant S as 子智能体
+    participant SM as SubagentManager
+    participant SA as 子智能体
 
     U->>A: 执行长任务
     A->>BG: start_background_task
-    BG->>S: 创建独立智能体
+    BG->>SM: 创建 SubagentManager
+    SM->>SA: 独立 Agent 循环
+    Note over SA: 最多 15 次迭代
     BG-->>A: 返回 job_id
     A-->>U: 任务已启动 (ID: xxx)
     
@@ -440,7 +452,9 @@ sequenceDiagram
     BG-->>A: running
     A-->>U: 仍在执行...
     
-    S-->>BG: 任务完成
+    SA-->>SM: 任务完成
+    SM-->>BG: on_notify 回调
+    BG-->>A: 通知结果
     U->>A: 获取结果
     A->>BG: get_task_result
     BG-->>A: 返回结果
@@ -457,9 +471,9 @@ flowchart LR
     classDef system fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#f57f17;
     classDef action fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
 
-    Agent[智能体自主创建任务]:::agent --> Scheduler[Cron 调度器]:::system
+    Agent[智能体自主创建任务]:::agent --> Scheduler[CronService<br/>at/every/cron 三种模式]:::system
     Scheduler --> |触发| Execute[执行任务]:::action
-    Execute --> |完成| Notify[通知用户]:::action
+    Execute --> |完成| Notify[on_deliver 回调<br/>通知用户]:::action
     Execute --> |失败| Retry[自动重试]:::action
 ```
 
@@ -467,10 +481,20 @@ flowchart LR
 
 | 特性 | 说明 |
 | :--- | :--- |
-| **Cron 表达式** | 支持标准 Cron 语法，灵活配置执行时间 |
+| **三种调度模式** | `at` 指定时间、`every` 周期执行、`cron` 标准 Cron 表达式 |
+| **IANA 时区支持** | 支持 `Asia/Shanghai` 等 IANA 时区格式 |
+| **on_deliver 回调** | 任务触发时通过回调通知用户 |
 | **持久化存储** | 任务配置保存在 SQLite，重启后自动恢复 |
 | **自动重试** | 任务失败时自动重试，确保可靠性 |
 | **状态追踪** | 记录每次执行结果，便于审计和调试 |
+
+**三种调度模式对比**：
+
+| 模式 | 说明 | 示例 |
+| :--- | :--- | :--- |
+| `at` | 指定时间执行一次 | `at: "2024-12-25T09:00:00"` |
+| `every` | 周期性执行 | `every: "1h"` (每小时) |
+| `cron` | 标准 Cron 表达式 | `cron: "0 9 * * *"` (每天 9 点) |
 
 **常用 Cron 表达式**：
 
