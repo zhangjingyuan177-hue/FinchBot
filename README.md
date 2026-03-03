@@ -104,6 +104,7 @@ flowchart TB
     classDef core fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#0d47a1;
     classDef task fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#4a148c;
     classDef infra fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#1b5e20;
+    classDef service fill:#ffebee,stroke:#c62828,stroke-width:2px,color:#b71c1c;
 
     subgraph Input [Input Layer]
         direction LR
@@ -136,6 +137,10 @@ flowchart TB
         Heart[Heartbeat Monitor<br/>Self-Wakeup]:::task
     end
 
+    subgraph Service [Service Layer - Unified Management]
+        SM[ServiceManager<br/>Coordinate Services]:::service
+    end
+
     subgraph Memory [Memory Layer - Dual Storage]
         direction LR
         SQLite[(SQLite<br/>Structured Storage)]:::infra
@@ -159,6 +164,10 @@ flowchart TB
     Agent --> Task
     Agent <--> Memory
     Agent --> LLM
+
+    Task --> Service
+    Service --> SM
+
     Context --> Memory
     Memory --> SQLite
     Memory --> Vector
@@ -424,13 +433,13 @@ sequenceDiagram
     participant A as Agent
     participant SM as SubagentManager
     participant SA as Subagent<br/>(Independent Loop)
-    participant JS as JobStore
+    participant JM as JobManager
 
     U->>A: Execute long task
     A->>SM: start_background_task
-    SM->>JS: Create task (pending)
+    SM->>JM: Create task (pending)
     SM->>SA: Create independent Agent loop
-    JS-->>A: Return job_id
+    JM-->>A: Return job_id
     A-->>U: Task started (ID: xxx)
     
     Note over U,A: User continues dialog...
@@ -440,8 +449,8 @@ sequenceDiagram
     
     U->>A: Task progress?
     A->>SM: check_task_status
-    SM->>JS: Query status
-    JS-->>SM: running (iteration 5/15)
+    SM->>JM: Query status
+    JM-->>SM: running (iteration 5/15)
     A-->>U: Still executing...
     
     loop Max 15 iterations
@@ -452,7 +461,7 @@ sequenceDiagram
     SA-->>SM: Task complete
     SM->>SM: on_notify callback
     SM->>A: Inject result to session
-    A-->>U: 🔔 Background task complete
+    A-->>U: Background task complete
 ```
 
 #### Scheduled Tasks
@@ -1080,7 +1089,21 @@ finchbot -vv chat      # DEBUG and above (debug mode)
 
 ### Adding Tools
 
-**Built-in Tools**: Inherit `FinchTool` base class, implement `_run()` method, register with `ToolRegistry`.
+**Built-in Tools**: Use the `@tool` decorator to define tools, automatically registered to the `ToolRegistry` singleton.
+
+```python
+from finchbot.tools.decorator import tool
+from finchbot.tools.core import ToolCategory
+
+@tool(
+    name="my_tool",
+    description="Tool description",
+    category=ToolCategory.FILE,
+)
+async def my_tool(param: str) -> str:
+    """Tool implementation"""
+    return "result"
+```
 
 **MCP Tools**: Configure MCP servers in `finchbot config`, or edit `~/.finchbot/workspace/config/mcp.json`.
 

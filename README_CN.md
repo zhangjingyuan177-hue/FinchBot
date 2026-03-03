@@ -1089,7 +1089,21 @@ finchbot -vv chat      # DEBUG 及以上（调试模式）
 
 ### 添加工具
 
-**内置工具**：继承 `FinchTool` 基类，实现 `_run()` 方法，注册到 `ToolRegistry`。
+**内置工具**：使用 `@tool` 装饰器定义工具，自动注册到 `ToolRegistry` 单例。
+
+```python
+from finchbot.tools.decorator import tool
+from finchbot.tools.core import ToolCategory
+
+@tool(
+    name="my_tool",
+    description="工具描述",
+    category=ToolCategory.FILE,
+)
+async def my_tool(param: str) -> str:
+    """工具实现"""
+    return "result"
+```
 
 **MCP 工具**：在 `finchbot config` 中配置 MCP 服务器，或编辑 `~/.finchbot/workspace/config/mcp.json`。
 
