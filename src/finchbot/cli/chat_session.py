@@ -1063,13 +1063,21 @@ async def _run_chat_session_async(
             console.print(f"[red]{t('cli.rollback.error_showing').format(e)}[/red]")
             console.print(f"[dim]{t('cli.chat.check_logs')}[/dim]")
 
-    # 清理资源
-    await service_manager.stop_all()
-    logger.debug("ServiceManager stopped all services")
+    # 清理资源 - 确保在所有退出路径都执行
+    logger.info("Cleaning up resources...")
+    
+    # 停止所有后台服务
+    try:
+        await service_manager.stop_all()
+        logger.debug("ServiceManager stopped all services")
+    except Exception as e:
+        logger.debug(f"Error stopping services: {e}")
 
+    # 关闭 checkpointer 连接
     if hasattr(checkpointer, "conn") and checkpointer.conn:
         try:
             await checkpointer.conn.close()
+            logger.debug("Checkpointer connection closed")
         except Exception as e:
             logger.debug(f"Error closing checkpointer: {e}")
 
@@ -1090,11 +1098,16 @@ def _get_last_active_session(workspace: Path) -> str:
         store = SessionMetadataStore(workspace)
         return store.get_next_session_id()
 
-    with sqlite3.connect(str(db_path)) as conn:
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    try:
         cursor = conn.execute("SELECT session_id FROM sessions ORDER BY last_active DESC LIMIT 1")
         row = cursor.fetchone()
         if row:
             return row[0]
+    finally:
+        conn.close()
 
     from finchbot.sessions import SessionMetadataStore
 

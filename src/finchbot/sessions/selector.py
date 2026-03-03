@@ -361,6 +361,8 @@ class SessionSelector:
 
         try:
             with closing(sqlite3.connect(str(db_path))) as conn:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA busy_timeout=30000")
                 cursor = conn.cursor()
                 # 更新元数据表
                 cursor.execute(
@@ -392,6 +394,8 @@ class SessionSelector:
 
         try:
             with closing(sqlite3.connect(str(db_path))) as conn:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA busy_timeout=30000")
                 cursor = conn.cursor()
                 cursor.execute(
                     "UPDATE checkpoints SET thread_id = ? WHERE thread_id = ?",
@@ -444,6 +448,8 @@ class SessionSelector:
 
         try:
             with closing(sqlite3.connect(str(db_path))) as conn:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA busy_timeout=30000")
                 cursor = conn.cursor()
                 cursor.execute("DELETE FROM checkpoints WHERE thread_id = ?", (session_id,))
                 conn.commit()

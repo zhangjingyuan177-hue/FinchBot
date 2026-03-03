@@ -12,6 +12,13 @@
 <p align="center">🌐 <strong>Language</strong>: <a href="README.md">English</a> | <a href="README_CN.md">中文</a></p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Gitee-Officially_Recommended-red?logo=gitee&logoColor=white" alt="Gitee Recommended">
+  <a href="https://atomgit.com/xt765/FinchBot">
+    <img src="https://img.shields.io/badge/AtomGit-G--Star_Incubation_Project-silver?logo=git&logoColor=white" alt="AtomGit">
+  </a>
+</p>
+
+<p align="center">
   <a href="https://blog.csdn.net/Yunyi_Chi">
     <img src="https://img.shields.io/badge/CSDN-玄同765-orange?style=flat-square&logo=csdn" alt="CSDN Blog">
   </a>
@@ -23,13 +30,6 @@
   </a>
   <a href="https://gitcode.com/xt765/FinchBot">
     <img src="https://img.shields.io/badge/GitCode-FinchBot-silver?style=flat-square&logo=gitcode" alt="GitCode">
-  </a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Gitee-Officially_Recommended-red?logo=gitee&logoColor=white" alt="Gitee Recommended">
-  <a href="https://atomgit.com/xt765/FinchBot">
-    <img src="https://img.shields.io/badge/AtomGit-G--Star_Incubation_Project-silver?logo=git&logoColor=white" alt="AtomGit">
   </a>
 </p>
 
