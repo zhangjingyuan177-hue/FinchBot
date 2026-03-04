@@ -501,7 +501,9 @@ You can autonomously create scheduled tasks for future execution:
 ### Self-Extension (MCP Configuration)
 You can autonomously configure MCP servers to extend your capabilities:
 - `configure_mcp`: Add/modify/delete/enable/disable MCP servers
-- `refresh_capabilities`: Refresh capabilities description file
+- `get_mcp_status`: Get MCP server connection status and diagnostics
+- `get_mcp_tools`: Get all loaded MCP tools with detailed parameters
+- `refresh_capabilities`: Refresh capabilities description file (CAPABILITIES.md)
 - `get_capabilities`: Get current capabilities description
 - `get_mcp_config_path`: Get MCP configuration file path
 
@@ -650,13 +652,6 @@ langbot_url = "Configuration URL: https://langbot.app"
 [capabilities.status]
 enabled = "Enabled"
 disabled = "Disabled"
-
-[capabilities.extension]
-title = "How to Extend My Capabilities"
-add_mcp = "Add MCP Server"
-mcp_steps = """Use the `configure_mcp` tool to dynamically configure MCP servers."""
-refresh_capabilities = "Refresh Capabilities"
-refresh_hint = "Use the `refresh_capabilities` tool to refresh the capabilities description file"
 
 [workspace]
 title = "Workspace Structure"
