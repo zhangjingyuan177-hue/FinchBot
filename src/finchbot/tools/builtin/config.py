@@ -40,6 +40,7 @@ async def _trigger_mcp_hot_reload(workspace: Path) -> bool:
     """触发 MCP 热更新.
 
     尝试调用 MCPHotUpdateManager 执行实际的热更新。
+    同时更新 middleware 的动态工具列表。
 
     Args:
         workspace: 工作目录
@@ -53,8 +54,16 @@ async def _trigger_mcp_hot_reload(workspace: Path) -> bool:
         mcp_manager = MCPHotUpdateManager.get_instance()
         if mcp_manager:
             logger.info("触发 MCP 热更新...")
-            await mcp_manager.hot_reload()
-            logger.info("MCP 热更新完成")
+            new_tools = await mcp_manager.hot_reload()
+            logger.info(f"MCP 热更新完成: {len(new_tools)} 个工具")
+
+            from finchbot.tools.middleware import get_mcp_middleware
+
+            middleware = get_mcp_middleware()
+            if middleware and new_tools:
+                middleware._dynamic_tools = new_tools
+                logger.info(f"已更新 middleware 动态工具列表: {len(new_tools)} 个工具")
+
             return True
         else:
             logger.debug("MCPHotUpdateManager 实例不存在，跳过热更新")

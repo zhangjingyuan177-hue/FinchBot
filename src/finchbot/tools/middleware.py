@@ -315,6 +315,28 @@ class MCPHotUpdateMiddleware(AgentMiddleware):
         logger.info(f"MCP 热更新生效: +{len(added_tools)} 工具, -{len(removed_names)} 工具")
 
 
+_mcp_middleware_instance: MCPHotUpdateMiddleware | None = None
+
+
+def get_mcp_middleware() -> MCPHotUpdateMiddleware | None:
+    """获取 MCP middleware 实例.
+
+    Returns:
+        MCPHotUpdateMiddleware 实例，如果不存在返回 None
+    """
+    return _mcp_middleware_instance
+
+
+def set_mcp_middleware(middleware: MCPHotUpdateMiddleware) -> None:
+    """设置 MCP middleware 实例.
+
+    Args:
+        middleware: MCPHotUpdateMiddleware 实例
+    """
+    global _mcp_middleware_instance
+    _mcp_middleware_instance = middleware
+
+
 def create_dynamic_tool_middleware(cache: Any) -> Any:
     """创建动态工具 middleware.
 
@@ -370,11 +392,14 @@ def create_mcp_hot_update_middleware(
     if not MIDDLEWARE_AVAILABLE:
         logger.warning("Middleware API 不可用，返回空 middleware")
         return None
-    return MCPHotUpdateMiddleware(
+
+    middleware = MCPHotUpdateMiddleware(
         mcp_manager=mcp_manager,
         registry=registry,
         initial_tools=initial_tools,
     )
+    set_mcp_middleware(middleware)
+    return middleware
 
 
 def create_mcp_hot_update_middlewares(
