@@ -627,13 +627,6 @@ langbot_url = "配置地址：https://langbot.app"
 enabled = "已启用"
 disabled = "已禁用"
 
-[capabilities.extension]
-title = "如何扩展我的能力"
-add_mcp = "新增 MCP 服务器"
-mcp_steps = """使用 `configure_mcp` 工具动态配置 MCP 服务器。"""
-refresh_capabilities = "刷新能力描述"
-refresh_hint = "使用 `refresh_capabilities` 工具可以刷新能力描述文件"
-
 [workspace]
 title = "工作区结构"
 description = """工作区目录结构：
