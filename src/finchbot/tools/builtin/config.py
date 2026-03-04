@@ -485,3 +485,107 @@ async def get_mcp_config_path_tool() -> str:
     )
 
     return result
+
+
+@tool(
+    name="get_mcp_tools",
+    description="""Get all loaded MCP tools with detailed descriptions.
+
+Returns a list of all MCP tools currently loaded, including:
+- Tool names and descriptions
+- Required and optional parameters
+- Which MCP server each tool belongs to
+
+Use this to understand what MCP tools are available and how to use them.
+""",
+    category=ToolCategory.CONFIG,
+    tags=["config", "mcp", "tools"],
+)
+async def get_mcp_tools() -> str:
+    """获取所有已加载的 MCP 工具列表.
+
+    返回所有已加载的 MCP 工具及其详细描述和参数说明。
+
+    Returns:
+        MCP 工具列表信息
+    """
+    from finchbot.tools.core import ToolRegistry
+
+    workspace = _get_workspace()
+    registry = ToolRegistry.get_instance()
+
+    if not registry:
+        return "Tool registry not initialized."
+
+    mcp_tools = registry.get_tools_by_source("mcp")
+
+    if not mcp_tools:
+        return "No MCP tools are currently loaded.\n\nUse configure_mcp to add MCP servers."
+
+    lines = ["## Loaded MCP Tools\n"]
+    lines.append(f"Total: {len(mcp_tools)} tools\n")
+
+    by_server: dict[str, list] = {}
+    for tool in mcp_tools:
+        server = getattr(tool, "_mcp_server_name", "unknown")
+        if server not in by_server:
+            by_server[server] = []
+        by_server[server].append(tool)
+
+    for server_name, server_tools in sorted(by_server.items()):
+        lines.append(f"### {server_name} ({len(server_tools)} tools)\n")
+
+        for tool in server_tools:
+            desc = tool.description[:150] + "..." if len(tool.description) > 150 else tool.description
+            lines.append(f"#### {tool.name}\n")
+            lines.append(f"{desc}\n")
+
+            params = _get_tool_params(tool)
+            if params:
+                lines.append("**Parameters:**\n")
+                for name, info in params.items():
+                    required = " (required)" if info.get("required") else " (optional)"
+                    desc_text = info.get("description", "")
+                    lines.append(f"- `{name}`{required}: {desc_text}\n")
+            else:
+                lines.append("No parameters required.\n")
+
+            lines.append("")
+
+    return "\n".join(lines)
+
+
+def _get_tool_params(tool) -> dict:
+    """获取工具参数.
+
+    Args:
+        tool: 工具实例
+
+    Returns:
+        参数字典
+    """
+    params = {}
+
+    if hasattr(tool, "parameters") and tool.parameters:
+        props = tool.parameters.get("properties", {})
+        required = tool.parameters.get("required", [])
+        for name, info in props.items():
+            params[name] = {
+                "description": info.get("description", ""),
+                "required": name in required,
+            }
+
+    if not params and hasattr(tool, "args_schema"):
+        try:
+            schema = tool.args_schema.schema()
+            props = schema.get("properties", {})
+            required = schema.get("required", [])
+            for name, info in props.items():
+                params[name] = {
+                    "description": info.get("description", ""),
+                    "required": name in required,
+                }
+        except Exception:
+            pass
+
+    return params
