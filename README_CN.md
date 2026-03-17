@@ -257,27 +257,27 @@ flowchart LR
 
 #### 内置工具
 
-| 类别 | 工具 | 功能 |
-| :--- | :--- | :--- |
-| **文件操作** | `read_file` | 读取本地文件 |
-| | `write_file` | 写入本地文件 |
+| 类别 | 工具 | 功能  |
+| :--- | :--- | :---  |
+| **文件操作** | `read_file` | 读取本地文件  |
+| | `write_file` | 写入本地文件  |
 | | `edit_file` | 编辑文件内容 |
-| | `list_dir` | 列出目录内容 |
-| **网络能力** | `web_search` | 联网搜索 (Tavily/Brave/DDG) |
-| | `web_extract` | 网页内容提取 |
-| **记忆管理** | `remember` | 主动存储记忆 |
-| | `recall` | 检索记忆 |
-| | `forget` | 删除/归档记忆 |
-| **系统控制** | `exec` | 安全执行 Shell 命令 |
-| **配置管理** | `configure_mcp` | 动态配置 MCP 服务器 |
-| | `refresh_capabilities` | 刷新能力描述文件 |
-| **后台任务** | `start_background_task` | 启动后台任务 |
-| | `check_task_status` | 检查任务状态 |
-| | `get_task_result` | 获取任务结果 |
-| | `cancel_task` | 取消任务 |
-| **定时任务** | `create_cron` | 创建定时任务 |
-| | `list_crons` | 列出所有定时任务 |
-| | `delete_cron` | 删除定时任务 |
+| | `list_dir` | 列出目录内容  |
+| **网络能力** | `web_search` | 联网搜索 (Tavily/Brave/DDG)  |
+| | `web_extract` | 网页内容提取  |
+| **记忆管理** | `remember` | 主动存储记忆  |
+| | `recall` | 检索记忆  |
+| | `forget` | 删除/归档记忆  |
+| **系统控制** | `exec` | 安全执行 Shell 命令  |
+| **配置管理** | `configure_mcp` | 动态配置 MCP 服务器  |
+| | `refresh_capabilities` | 刷新能力描述文件  |
+| **后台任务** | `start_background_task` | 启动后台任务  |
+| | `check_task_status` | 检查任务状态  |
+| | `get_task_result` | 获取任务结果  |
+| | `cancel_task` | 取消任务  |
+| **定时任务** | `create_cron` | 创建定时任务  |
+| | `list_crons` | 列出所有的定时任务  |
+| | `delete_cron` | 删除定时任务  |
 
 ##### 网页搜索
 
